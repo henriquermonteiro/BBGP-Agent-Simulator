@@ -1,0 +1,46 @@
+Thing = {man_32, bed, arm, me, p2, p6}
+Goals = {gHolder}
+
+type(takeHospital(Goals,Thing))
+type(go(Goals,Thing,Thing))
+type(sendShelter(Goals,Thing))
+type(available(Thing,Thing))
+type(newSupply(Thing))
+type(hasFractBone(Thing))
+type(fractBoneIs(Thing,Thing))
+type(injuredSevere(Thing))
+type(openFracture(Thing))
+type(askedForHelp(Thing,Thing))
+type(supportWeight(Thing))
+type(beOperative(Thing))
+
+=> beOperative(me)
+=> hasFractBone(man_32)
+=> fractBoneIs(man_32, arm)
+=> askedForHelp(p2, p6)
+=> openFracture(man_32)
+=> !available(bed,Y)
+=> newSupply(bed)
+=> supportWeight(man_32)
+
+newSupply(X) -> available(X, Y)
+hasFractBone(X) => injuredSevere(X)
+fractBoneIs(X, arm) => !injuredSevere(X)
+openFracture(X) -> injuredSevere(X)
+
+act1 : injuredSevere(X) -> takeHospital(G, X)
+act2 : !injuredSevere(X) -> sendShelter(G, X)
+act3 : askedForHelp(X, Y) => go(G, X, Y)
+
+!supportWeight(X) -> !takeHospital(G, X)
+!available(bed, X) -> !takeHospital(G, X)
+
+
+act3 < act2 < act1
+
+res : battery,80.0
+res : oil , 70.0
+
+go(G,X,Y) :- beOperative(me), res : battery,50.0
+takeHospital(G,X) :- beOperative(me), res:battery,40.0
+sendShelter(G,X) :- beOperative(me), re:battery,5.0
