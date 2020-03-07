@@ -547,7 +547,8 @@ public class Agent {
 
         AbstractExtensionReasoner prefSemantic = AbstractExtensionReasoner.getSimpleReasonerForSemantics(Semantics.PREFERRED_SEMANTICS);
 
-        Extension selected = selectExtension_ActivationStage(prefSemantic.getModels(theory.asDungTheory()));
+        DungTheory dTheory = theory.asDungTheory();
+        Extension selected = selectExtension_ActivationStage(prefSemantic.getModels(dTheory));
 
         for (Argument arg : selected) {
             if (arg instanceof AspicArgument) {
@@ -566,7 +567,7 @@ public class Agent {
                         Goal g = goals.createGoal(((FolAtom) conc).getPredicate(), (FolAtom) conc);
                         
                         if(g != null)
-                            goalMemory.add(new GoalMemory(agentCycle, g, arg));
+                            goalMemory.add(new GoalMemory(agentCycle, g, arg, dTheory, selected));
 
                         break;
                     }
@@ -649,7 +650,7 @@ public class Agent {
         for (Goal g : activeGoals) {
             g.setStage(GoalStage.Pursuable);
             
-            goalMemory.add(new GoalMemory(agentCycle, g, null));
+            goalMemory.add(new GoalMemory(agentCycle, g, null, null, selected));
         }
     }
 
@@ -695,7 +696,8 @@ public class Agent {
 
         AbstractExtensionReasoner prefSemantic = AbstractExtensionReasoner.getSimpleReasonerForSemantics(Semantics.PREFERRED_SEMANTICS);
 
-        Extension selected = selectExtension_DeliberationStage(prefSemantic.getModels(theory.asDungTheory()));
+        DungTheory dTheory = theory.asDungTheory();
+        Extension selected = selectExtension_DeliberationStage(prefSemantic.getModels(dTheory));
 
 //        HashSet<Goal> choosenGoals = new HashSet<>();
 
@@ -714,7 +716,7 @@ public class Agent {
 //                                        choosenGoals.add(gAx);
                                         
                                         gAx.setStage(GoalStage.Choosen);
-                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg));
+                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
                                     }
                                 }
 
@@ -773,7 +775,8 @@ public class Agent {
 
         AbstractExtensionReasoner prefSemantic = AbstractExtensionReasoner.getSimpleReasonerForSemantics(Semantics.PREFERRED_SEMANTICS);
 
-        Extension selected = selectExtension_CheckingStage(prefSemantic.getModels(theory.asDungTheory()));
+        DungTheory dTheory = theory.asDungTheory();
+        Extension selected = selectExtension_CheckingStage(prefSemantic.getModels(dTheory));
 
         HashSet<Goal> executiveGoals = new HashSet<>();
 
@@ -792,7 +795,7 @@ public class Agent {
                                         executiveGoals.add(gAx);
                                         
                                         gAx.setStage(GoalStage.Executive);
-                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg));
+                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
                                     }
                                 }
 
@@ -941,7 +944,7 @@ public class Agent {
     public void cancelAllExecutiveGoals(){
         for(Goal g : goals.getGoalByStage(GoalStage.Executive)){
             g.setStage(GoalStage.Cancelled);
-            goalMemory.add(new GoalMemory(agentCycle, g, null));
+            goalMemory.add(new GoalMemory(agentCycle, g, null, null, null));
         }
     }
 
