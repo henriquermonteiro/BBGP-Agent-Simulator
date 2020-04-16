@@ -18,8 +18,10 @@ import net.sf.tweety.arg.aspic.syntax.AspicArgumentationTheory;
 import net.sf.tweety.arg.aspic.syntax.DefeasibleInferenceRule;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
 import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
+import net.sf.tweety.commons.util.MapTools;
 import net.sf.tweety.commons.util.Triple;
 import net.sf.tweety.logics.commons.syntax.Constant;
+import net.sf.tweety.logics.commons.syntax.Sort;
 import net.sf.tweety.logics.commons.syntax.Variable;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
@@ -34,24 +36,24 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
     public AspicArgumentationTheoryFol(RuleFormulaGenerator<FolFormula> rfgen) {
         super(rfgen);
     }
-    
-    public static AspicArgumentationTheoryFol castTo(AspicArgumentationTheory<FolFormula> theory){
+
+    public static AspicArgumentationTheoryFol castTo(AspicArgumentationTheory<FolFormula> theory) {
         AspicArgumentationTheoryFol thisTheory = new AspicArgumentationTheoryFol(theory.getRuleFormulaGenerator());
-        
+
         theory.forEach((infRule) -> {
             thisTheory.add(infRule);
         });
-        
+
         return thisTheory;
     }
-    
-    protected FolFormula cloneFolFormula(FolFormula formula){
+
+    protected FolFormula cloneFolFormula(FolFormula formula) {
         FolFormula clone = formula.clone();
-        
-        if(formula instanceof Negation){
-            clone = new Negation(((Negation)((Negation) clone).getFormula()).getFormula().clone());
+
+        if (formula instanceof Negation) {
+            clone = new Negation(((Negation) ((Negation) clone).getFormula()).getFormula().clone());
         }
-        
+
         return clone;
     }
 
@@ -74,20 +76,45 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         do {
             changed = false;
             for (InferenceRule<FolFormula> rule : this) {
-                Set<Map<Variable, Term<?>>> mapping = rule.getConclusion().allSubstitutions(usedTerms);
+                
+                HashSet<Variable> variables = new HashSet<>(rule.getConclusion().getUnboundVariables());
+                for (FolFormula prem : rule.getPremise()) {
+                    variables.addAll(prem.getUnboundVariables());
+                }
+
+                Map<Sort, Set<Variable>> sorts_variables = new HashMap<>();
+                for (Variable v : variables) {
+                    if (!sorts_variables.containsKey(v.getSort())) {
+                        sorts_variables.put(v.getSort(), new HashSet<>());
+                    }
+                    sorts_variables.get(v.getSort()).add(v);
+                }
+                //partition terms by sorts
+                Map<Sort, Set<Term<?>>> sorts_terms = Sort.sortTerms(usedTerms);
+                //combine the partitions
+                Map<Set<Variable>, Set<Term<?>>> mappings = new HashMap<>();
+                for (Sort s : sorts_variables.keySet()) {
+                    if (!sorts_terms.containsKey(s)) {
+                        throw new IllegalArgumentException("There is no term of sort " + s + " to substitute.");
+                    }
+                    mappings.put(sorts_variables.get(s), sorts_terms.get(s));
+                }
+                
+                Set<Map<Variable, Term<?>>> mapping = new MapTools<Variable,Term<?>>().allMaps(mappings);
 
                 for (Map<Variable, Term<?>> map : mapping) {
-                    if(map.isEmpty()) continue;
-                    
+                    if (map.isEmpty()) {
+                        continue;
+                    }
+
                     subs.clear();
-                    
+
                     boolean continueWithNextSubstitution = false;
 
 //                    FolFormula ruleConclusion = (FolFormula) rule.getConclusion().clone().substitute(map);
                     FolFormula ruleConclusion = cloneFolFormula(rule.getConclusion());
                     ruleConclusion = (FolFormula) ruleConclusion.substitute(map);
 
-                    
                     for (FolFormula prem : rule.getPremise()) {
 //                        prem = (FolFormula) prem.clone().substitute(map);
                         prem = (FolFormula) cloneFolFormula(prem).substitute(map);
@@ -126,7 +153,7 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                     if (continueWithNextSubstitution) {
                         continue;
                     }
-                    if(rule.getPremise().isEmpty()){
+                    if (rule.getPremise().isEmpty()) {
                         InferenceRule<FolFormula> unifiedRule;
 
                         if (rule instanceof StrictInferenceRule) {
@@ -165,7 +192,7 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         } while (changed);
         return args;
     }
-    
+
     private ArrayList< Triple<FolFormula, HashSet<FolFormula>, HashMap<String, Double>>> planTemplates = new ArrayList<>();
 
     public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashMap<String, Double> resourceContext) {
@@ -175,9 +202,9 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
     public List<Triple<FolFormula, HashSet<FolFormula>, HashMap<String, Double>>> getPlanTemplates() {
         return planTemplates;
     }
-    
+
     private HashMap< String, Double> startingResources = new HashMap<>();
-    
+
     public void addResource(String resource, Double value) {
         startingResources.put(resource, value);
     }
