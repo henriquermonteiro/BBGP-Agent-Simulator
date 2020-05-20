@@ -19,19 +19,22 @@ import net.sf.tweety.arg.aspic.syntax.DefeasibleInferenceRule;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
 import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
 import net.sf.tweety.commons.util.MapTools;
-import net.sf.tweety.commons.util.Triple;
 import net.sf.tweety.logics.commons.syntax.Constant;
 import net.sf.tweety.logics.commons.syntax.Sort;
 import net.sf.tweety.logics.commons.syntax.Variable;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
 import net.sf.tweety.logics.fol.syntax.Negation;
+import utfpr.edu.bbgp.agent.PerceptionEntry;
+import utfpr.edu.bbgp.simul.utils.Quadruplet;
 
 /**
  *
  * @author henri
  */
 public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFormula> {
+
+    private ArrayList< Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>>> planTemplates = new ArrayList<>();
 
     public AspicArgumentationTheoryFol(RuleFormulaGenerator<FolFormula> rfgen) {
         super(rfgen);
@@ -111,12 +114,10 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
 
                     boolean continueWithNextSubstitution = false;
 
-//                    FolFormula ruleConclusion = (FolFormula) rule.getConclusion().clone().substitute(map);
                     FolFormula ruleConclusion = cloneFolFormula(rule.getConclusion());
                     ruleConclusion = (FolFormula) ruleConclusion.substitute(map);
 
                     for (FolFormula prem : rule.getPremise()) {
-//                        prem = (FolFormula) prem.clone().substitute(map);
                         prem = (FolFormula) cloneFolFormula(prem).substitute(map);
 
                         argsForPrem.clear();
@@ -172,15 +173,20 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                         InferenceRule<FolFormula> unifiedRule;
 
                         if (rule instanceof StrictInferenceRule) {
-                            unifiedRule = new StrictInferenceRule<>();
+                            unifiedRule = new StrictInferenceRuleWithId<>();
+                            if(rule instanceof StrictInferenceRuleWithId){
+                                ((StrictInferenceRuleWithId)unifiedRule).setRuleId(((StrictInferenceRuleWithId)rule).getRuleId());
+                            }
 
                         } else {
-                            unifiedRule = new DefeasibleInferenceRule<>();
+                            unifiedRule = new DefeasibleInferenceRuleWithId<>();
+                            if(rule instanceof DefeasibleInferenceRuleWithId){
+                                ((DefeasibleInferenceRuleWithId)unifiedRule).setRuleId(((DefeasibleInferenceRuleWithId) rule).getRuleId());
+                            }
                         }
 
                         unifiedRule.setConclusion(ruleConclusion);
                         for (FolFormula prem : rule.getPremise()) {
-//                            unifiedRule.addPremise((FolFormula) prem.clone().substitute(map));
                             unifiedRule.addPremise((FolFormula) cloneFolFormula(prem).substitute(map));
                         }
 
@@ -193,13 +199,11 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         return args;
     }
 
-    private ArrayList< Triple<FolFormula, HashSet<FolFormula>, HashMap<String, Double>>> planTemplates = new ArrayList<>();
-
-    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashMap<String, Double> resourceContext) {
-        planTemplates.add(new Triple(goalFormula, beliefContext, resourceContext));
+    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashMap<String, Double> resourceContext, HashSet<PerceptionEntry> postConditions) {
+        planTemplates.add(new Quadruplet<>(goalFormula, beliefContext, resourceContext, postConditions));
     }
 
-    public List<Triple<FolFormula, HashSet<FolFormula>, HashMap<String, Double>>> getPlanTemplates() {
+    public List<Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>>> getPlanTemplates() {
         return planTemplates;
     }
 

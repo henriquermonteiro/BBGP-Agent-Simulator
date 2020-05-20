@@ -9,15 +9,17 @@ package utfpr.edu.bbgp.simul.utils;
  *
  * @author henri
  */
-public class Triplet<T,U,V> {
+public class Quadruplet<T,U,V,W> {
     private T t;
     private U u;
     private V v;
+    private W w;
 
-    public Triplet(T t, U u, V v) {
+    public Quadruplet(T t, U u, V v, W w) {
         this.t = t;
         this.u = u;
         this.v = v;
+        this.w = w;
     }
 
     public T getT() {
@@ -42,5 +44,13 @@ public class Triplet<T,U,V> {
 
     public void setV(V v) {
         this.v = v;
+    }
+
+    public W getW() {
+        return w;
+    }
+
+    public void setW(W w) {
+        this.w = w;
     }
 }

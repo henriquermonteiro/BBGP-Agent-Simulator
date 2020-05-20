@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package utfpr.edu.bbgp.agent;
+package utfpr.edu.bbgp.agent.manager;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -11,6 +11,10 @@ import java.util.Set;
 import net.sf.tweety.logics.commons.syntax.Constant;
 import net.sf.tweety.logics.commons.syntax.Predicate;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
+import utfpr.edu.bbgp.agent.Agent;
+import utfpr.edu.bbgp.agent.Goal;
+import utfpr.edu.bbgp.agent.GoalStage;
+import utfpr.edu.bbgp.agent.SleepingGoal;
 
 /**
  *
@@ -40,6 +44,10 @@ public class GoalManager{
     }
     
     public Goal createGoal(Predicate pred, FolAtom fullPredicate){
+        return this.createGoal(pred, fullPredicate, true);
+    }
+    
+    public Goal createGoal(Predicate pred, FolAtom fullPredicate, boolean createIdentifier){
         SleepingGoal sG = sleepingGoals.get(pred);
         
         if(sG == null || fullPredicate == null)
@@ -58,19 +66,21 @@ public class GoalManager{
         }
         
         Goal g = new Goal(agent, sG, fullPredicate, GoalStage.Active);
-        boolean isNewGoal = goals.add(g);
-        
-        if(isNewGoal){
-            Constant goalTerm = agent.getNextGoalConstant();
-            
-            g.setGoalTerm(goalTerm);
-        }else{
-//            for(Goal goal : goals){
-//                if(g.equals(goal)){
-//                    return goal;
-//                }
-//            }
-            g = null;
+        if(createIdentifier){
+            boolean isNewGoal = goals.add(g);
+
+            if(isNewGoal){
+                Constant goalTerm = agent.getNextGoalConstant();
+
+                g.setGoalTerm(goalTerm);
+            }else{
+    //            for(Goal goal : goals){
+    //                if(g.equals(goal)){
+    //                    return goal;
+    //                }
+    //            }
+                g = null;
+            }
         }
         
         return g;
@@ -87,6 +97,26 @@ public class GoalManager{
         
         return filteredGoals;
     }
+    
+    public Set<Goal> getGoalAtLeastAtStage(GoalStage stage){
+        HashSet<Goal> filteredGoals = new HashSet<>();
+        
+        filteredGoals.addAll(getGoalByStage(stage));
+        
+        switch(stage){
+            case Active:
+                filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Pursuable));
+                return filteredGoals;
+            case Pursuable:
+                filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Choosen));
+                return filteredGoals;
+            case Choosen:
+                filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Executive));
+                return filteredGoals;
+        }
+        
+        return filteredGoals;
+    }
 
     public Set<Goal> getGoals() {
         return goals;
@@ -96,7 +126,7 @@ public class GoalManager{
         return sleepingGoals.get(pred);
     }
 
-    boolean contaisSleepingGoal(SleepingGoal goal) {
+    public boolean contaisSleepingGoal(SleepingGoal goal) {
         return sleepingGoals.containsValue(goal);
     }
 }

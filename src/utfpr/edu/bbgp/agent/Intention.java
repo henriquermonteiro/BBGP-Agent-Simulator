@@ -14,6 +14,7 @@ import net.sf.tweety.logics.fol.syntax.FolFormula;
  * @author henri
  */
 public class Intention {
+    private Agent agent;
     // plan execution "pointer".
     private Object currentStep;
     // mapping
@@ -23,11 +24,12 @@ public class Intention {
     // Plan
     private final Plan plan;
 
-    public Intention(Goal goal, Plan plan, Set<FolFormula> unification) {
+    public Intention(Agent agent, Goal goal, Plan plan, Set<FolFormula> unification) {
         if(!goal.getGoalBase().equals(plan.getGoal())){
             throw new IllegalArgumentException("The plan incompatible with goal: The goal of the plan must be the same as the base goal.");
         }
         
+        this.agent = agent;
         this.goal = goal;
         this.plan = plan;
         
@@ -53,7 +55,7 @@ public class Intention {
     public boolean executeNextStep(){
         System.out.println("Executing action ...");
         
-        
+        agent.completeIntention(this);
         
         return true;
     }

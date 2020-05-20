@@ -1,0 +1,6 @@
+005 : - beOperative(me)
+010 : + beOperative(me)
+010 : + res:battery,60.0
+050 : + beOperative3(me2)
+051 : + beOperative(X)
+

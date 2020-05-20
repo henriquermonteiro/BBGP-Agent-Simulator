@@ -1,5 +1,4 @@
 Thing = {man_32, bed, arm, me, p2, p6}
-Goals = {gHolder}
 
 type(takeHospital(Goals,Thing))
 type(go(Goals,Thing,Thing))
@@ -34,6 +33,8 @@ act3 : askedForHelp(X, Y) => go(G, X, Y)
 
 !supportWeight(X) -> !takeHospital(G, X)
 !available(bed, X) -> !takeHospital(G, X)
+rescued(X) -> !takeHospital(G, X)
+rescued(X) -> !sendShelter(G, X)
 
 
 act3 < act2 < act1
@@ -41,6 +42,6 @@ act3 < act2 < act1
 res : battery,80.0
 res : oil , 70.0
 
-go(G,X,Y) :- beOperative(me), res : battery,50.0
-takeHospital(G,X) :- beOperative(me), res:battery,40.0
-sendShelter(G,X) :- beOperative(me), re:battery,5.0
+go(G,X,Y) :- beOperative(me), res : battery,50.0 $ -askedForHelp(X, Y), -res:battery,50.0
+takeHospital(G,X) :- beOperative(me), res:battery,40.0 $ -res:battery,40.0 , +rescued(X)
+sendShelter(G,X) :- beOperative(me), res:battery,5.0 $ - res:battery,5.0 , +rescued(X)

@@ -92,6 +92,7 @@ public class Goal implements Comparable<Goal>{
     @Override
     public Goal clone(){
         Goal clone = new Goal(agent, goalBase, goalPredicateUnified.clone(), stage);
+        if(goalTerm != null) clone.setGoalTerm(goalTerm);
         return clone;
     }
 

@@ -5,6 +5,8 @@
  */
 package utfpr.edu.bbgp.agent;
 
+import utfpr.edu.bbgp.agent.manager.ResourceManager;
+import utfpr.edu.bbgp.agent.manager.GoalManager;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,9 +15,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.sf.tweety.arg.aspic.ruleformulagenerator.FolFormulaGenerator;
 import net.sf.tweety.arg.aspic.syntax.AspicArgument;
 import net.sf.tweety.arg.aspic.syntax.DefeasibleInferenceRule;
@@ -38,6 +43,9 @@ import net.sf.tweety.logics.fol.syntax.FolFormula;
 import net.sf.tweety.logics.fol.syntax.FolSignature;
 import net.sf.tweety.logics.fol.syntax.Negation;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
+import utfpr.edu.bbgp.extended.DefeasibleInferenceRuleWithId;
+import utfpr.edu.bbgp.extended.StrictInferenceRuleWithId;
+import utfpr.edu.bbgp.simul.utils.FolFormulaUtils;
 
 /**
  *
@@ -46,22 +54,31 @@ import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
 public class Agent {
 
     public final static String GOAL_SORT_TEXT = "Goals";
-    
-    protected final static String HAS_INCOMPATIBILITY_STR = "_has_incompatibility";
-    protected final static String MOST_VALUABLE_STR = "_most_valuable";
-    protected final static String CHOOSEN_STR = "_choosen";
-    protected final static String HAS_PLANS_FOR_STR = "_has_plans_for";
-    protected final static String SATISFIED_CONTEXT_STR = "_satisfied_context";
-    protected final static String EXECUTIVE_STR = "_executive";
-    protected final static String GOAL_PLACE_HOLDER_PRED_STR = "_goalPlaceHolder";
-    protected final static String GOAL_PLACE_HOLDER_CONST_STR = "gHolder";
-    protected final static String GOAL_PLACE_HOLDER_VAR_STR = "G";
+
+    public final static String NOT_HAS_INCOMPATIBILITY_STR = "_not_has_incompatibility";
+    public final static String MOST_VALUABLE_STR = "_most_valuable";
+    public final static String CHOOSEN_STR = "_choosen";
+    public final static String HAS_PLANS_FOR_STR = "_has_plans_for";
+    public final static String SATISFIED_CONTEXT_STR = "_satisfied_context";
+    public final static String EXECUTIVE_STR = "_executive";
+    public final static String GOAL_PLACE_HOLDER_PRED_STR = "_goalPlaceHolder";
+    public final static String GOAL_PLACE_HOLDER_CONST_STR = "gHolder";
+    public final static String GOAL_PLACE_HOLDER_VAR_STR = "G";
+    public final static String TYPE_PLACE_HOLDER_PRED_STR = "_typeHolder";
+
+    public final static String TYPE_SORT_TEXT = "Type";
+
+    public final static String INCOMPATIBLE_STR = "_incompatible";
+    public final static String PREFERRED_STR = "_preferred";
+    public final static String EQ_PREFERRED_STR = "_eq_preferred";
+    public final static String DEEFNDS_STR = "_defends";
 
     private Boolean goalPreferenceFirst = false;
 
     // Valid predicates, variables and constants
     private FolSignature signature;
     private Sort goalSort;
+    private Sort typeSort;
 
     private Long agentCycle;
 
@@ -83,17 +100,25 @@ public class Agent {
     private HashMap<SleepingGoal, ArrayList<Plan>> planLib;
     private ArrayList<Intention> activeIntentions;
     private Integer intentionListPointer;
-    
+
     private LinkedList<FolFormula> beliefAdditionQueue;
     private LinkedList<FolFormula> beliefDeletionQueue;
-    private LinkedList<FolFormula> perceptionQueue;
-    
+//    private LinkedList<FolFormula> perceptionQueue;
+
     private ArrayList<GoalMemory> goalMemory;
+
+    private HashMap<String, String> argumentToIdMap;
+    private HashMap<String, String> conclusionToIdMap;
+
+    private Integer idle = 0;
+    private boolean changed;
 
     public Agent() {
         signature = new FolSignature();
         goalSort = new Sort(GOAL_SORT_TEXT);
         goals = new GoalManager(this);
+
+        typeSort = new Sort(TYPE_SORT_TEXT);
 
         resources = new ResourceManager();
 
@@ -110,78 +135,250 @@ public class Agent {
         evaluationRules = new AspicArgumentationTheoryFol(rfgen);
         deliberationRules = new AspicArgumentationTheoryFol(rfgen);
         checkingRules = new AspicArgumentationTheoryFol(rfgen);
-        
+
         beliefAdditionQueue = new LinkedList<>();
         beliefDeletionQueue = new LinkedList<>();
-        perceptionQueue = new LinkedList<>();
-        
+//        perceptionQueue = new LinkedList<>();
+
         goalMemory = new ArrayList<>();
-        
+
+        argumentToIdMap = new HashMap<>();
+        conclusionToIdMap = new HashMap<>();
+
         initializeBases();
     }
 
     public Agent(FolSignature folSignature, AspicArgumentationTheoryFol beliefs, AspicArgumentationTheoryFol standardRules, AspicArgumentationTheoryFol activationRules, AspicArgumentationTheoryFol evaluationRules) {
         this();
         this.signature.addSignature(folSignature);
-        this.beliefs.addAll(beliefs);
-        this.standardRules.addAll(standardRules);
-        this.activationRules.addAll(activationRules);
-        this.evaluationRules.addAll(evaluationRules);
+
+        Integer count = 1;
+        for (InferenceRule rule : beliefs) {
+            String id = "" + rule.getIdentifier();
+            String ruleId = "r_" + id;
+            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
+                id = "bel_".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                ruleId = "r_be^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                count++;
+            }
+
+            InferenceRule rule2;
+
+            if (rule instanceof StrictInferenceRule) {
+                rule2 = new StrictInferenceRuleWithId((StrictInferenceRule) rule).setRuleId(ruleId);
+            } else if (rule instanceof DefeasibleInferenceRule) {
+                rule2 = new DefeasibleInferenceRuleWithId((DefeasibleInferenceRule) rule).setRuleId(ruleId);
+            } else {
+                rule2 = rule;
+            }
+
+            conclusionToIdMap.put(rule2.getConclusion().toString(), id);
+
+            this.beliefs.add(rule2);
+        }
+
+        count = 1;
+        for (InferenceRule rule : standardRules) {
+            String id = "" + rule.getIdentifier();
+            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
+                id = "R_st^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                count++;
+            }
+
+            InferenceRule rule2;
+
+            if (rule instanceof StrictInferenceRule) {
+                rule2 = new StrictInferenceRuleWithId((StrictInferenceRule) rule).setRuleId(id);
+            } else if (rule instanceof DefeasibleInferenceRule) {
+                rule2 = new DefeasibleInferenceRuleWithId((DefeasibleInferenceRule) rule).setRuleId(id);
+            } else {
+                rule2 = rule;
+            }
+
+            this.standardRules.add(rule2);
+        }
+
+        count = 1;
+        for (InferenceRule rule : activationRules) {
+            String id = "" + rule.getIdentifier();
+            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
+                id = "R_ac^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                count++;
+            }
+
+            InferenceRule rule2;
+
+            if (rule instanceof StrictInferenceRule) {
+                rule2 = new StrictInferenceRuleWithId((StrictInferenceRule) rule).setRuleId(id);
+            } else if (rule instanceof DefeasibleInferenceRule) {
+                rule2 = new DefeasibleInferenceRuleWithId((DefeasibleInferenceRule) rule).setRuleId(id);
+            } else {
+                rule2 = rule;
+            }
+
+            this.activationRules.add(rule2);
+        }
+
+        count = 1;
+        for (InferenceRule rule : evaluationRules) {
+            String id = "" + rule.getIdentifier();
+            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
+                id = "R_ev^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                count++;
+            }
+
+            InferenceRule rule2;
+
+            if (rule instanceof StrictInferenceRule) {
+                rule2 = new StrictInferenceRuleWithId((StrictInferenceRule) rule).setRuleId(id);
+            } else if (rule instanceof DefeasibleInferenceRule) {
+                rule2 = new DefeasibleInferenceRuleWithId((DefeasibleInferenceRule) rule).setRuleId(id);
+            } else {
+                rule2 = rule;
+            }
+
+            this.evaluationRules.add(rule2);
+        }
     }
-    
-    protected void initializeBases(){
-        Constant gHolder = null;
-        Variable gVar = null;
-        
-        for(Constant c : goalSort.getTerms(Constant.class)){
-            if(c.getSort().equals(goalSort)){
+
+    Constant gHolder = null;
+    protected void initializeBases() {
+        Variable gVar1 = null;
+        Variable gVar2 = null;
+        Variable gVar3 = null;
+
+        for (Constant c : goalSort.getTerms(Constant.class)) {
+            if (c.getSort().equals(goalSort)) {
                 gHolder = c;
                 break;
             }
         }
-        
-        for(Variable v : goalSort.getTerms(Variable.class)){
-            if(v.getSort().equals(goalSort)){
-                gVar = v;
-                break;
+
+        for (Variable v : goalSort.getTerms(Variable.class)) {
+            if (v.getSort().equals(goalSort)) {
+                if (gVar1 == null) {
+                    gVar1 = v;
+                } else if (gVar2 == null) {
+                    gVar2 = v;
+                } else if (gVar3 == null) {
+                    gVar3 = v;
+                    break;
+                }
             }
         }
-        
-        if(gHolder == null){
+
+        typeSort.add(new Constant("none", typeSort));
+        for (byte i = 1; i < 8; i++) {
+            String s = "";
+            if ((i & 4) == 4) {
+                s += "t";
+            }
+            if ((i & 2) == 2) {
+                s += "r";
+            }
+            if ((i & (byte) 1) == 1) {
+                s += "s";
+            }
+            if (s.equals("")) {
+                System.err.println("Empty constant wrongly instantiate. [Agent.initializeBases()]");
+            }
+
+            typeSort.add(new Constant(s, typeSort));
+        }
+
+        Variable tVar = new Variable("T", typeSort);
+        typeSort.add(tVar);
+
+        if (gHolder == null) {
             gHolder = new Constant(GOAL_PLACE_HOLDER_CONST_STR, goalSort);
             goalSort.add(gHolder);
         }
-        
-        if(gVar == null){
-            gVar = new Variable(GOAL_PLACE_HOLDER_VAR_STR, goalSort);
-            goalSort.add(gVar);
+
+        if (gVar1 == null) {
+            gVar1 = new Variable(GOAL_PLACE_HOLDER_VAR_STR, goalSort);
+            goalSort.add(gVar1);
         }
-        
+
+        if (gVar2 == null) {
+            gVar2 = new Variable(GOAL_PLACE_HOLDER_VAR_STR + "*", goalSort);
+            goalSort.add(gVar2);
+        }
+
+        if (gVar3 == null) {
+            gVar3 = new Variable(GOAL_PLACE_HOLDER_VAR_STR + "**", goalSort);
+            goalSort.add(gVar3);
+        }
+
+        Constant tHolder = null;
+        for (Constant c : typeSort.getTerms(Constant.class)) {
+            if (c.getSort().equals(typeSort) && (tHolder == null || c.get().equals("none"))) {
+                tHolder = c;
+
+                if (c.get().equals("none")) {
+                    break;
+                }
+            }
+        }
+
         Predicate goalPlaceHolder = new Predicate(GOAL_PLACE_HOLDER_PRED_STR, Arrays.asList(goalSort));
-        
+
         signature.add(goalPlaceHolder);
-        
+
+        Predicate typePlaceHolder = new Predicate(TYPE_PLACE_HOLDER_PRED_STR, Arrays.asList(typeSort));
+
+        signature.add(typePlaceHolder);
+
         beliefs.add(new DefeasibleInferenceRule<>(new FolAtom(goalPlaceHolder, gHolder), new ArrayList<>()));
-        
-        Predicate hasIncompatibility = new Predicate(HAS_INCOMPATIBILITY_STR, Arrays.asList(goalSort));
+        beliefs.add(new DefeasibleInferenceRule<>(new FolAtom(typePlaceHolder, tHolder), new ArrayList<>()));
+
+        Predicate notHasIncompatibility = new Predicate(NOT_HAS_INCOMPATIBILITY_STR, Arrays.asList(goalSort));
         Predicate mostValuable = new Predicate(MOST_VALUABLE_STR, Arrays.asList(goalSort));
         Predicate choosen = new Predicate(CHOOSEN_STR, Arrays.asList(goalSort));
         Predicate hasPlansFor = new Predicate(HAS_PLANS_FOR_STR, Arrays.asList(goalSort));
         Predicate satisfiedContext = new Predicate(SATISFIED_CONTEXT_STR, Arrays.asList(goalSort));
         Predicate executive = new Predicate(EXECUTIVE_STR, Arrays.asList(goalSort));
-        
-        signature.add(hasIncompatibility);
+
+        Predicate incompatible = new Predicate(INCOMPATIBLE_STR, Arrays.asList(goalSort, goalSort, typeSort));
+        Predicate preferred = new Predicate(PREFERRED_STR, Arrays.asList(goalSort, goalSort));
+        Predicate eqPreferred = new Predicate(EQ_PREFERRED_STR, Arrays.asList(goalSort, goalSort));
+        Predicate defends = new Predicate(DEEFNDS_STR, Arrays.asList(goalSort, goalSort, goalSort));
+
+        signature.add(notHasIncompatibility);
         signature.add(mostValuable);
         signature.add(choosen);
         signature.add(hasPlansFor);
         signature.add(satisfiedContext);
         signature.add(executive);
-        
-        deliberationRules.add(new StrictInferenceRule<>(new FolAtom(choosen, gVar), Arrays.asList((FolFormula)new FolAtom(mostValuable, gVar))));
-        deliberationRules.add(new StrictInferenceRule<>(new FolAtom(choosen, gVar), Arrays.asList((FolFormula)new Negation(new FolAtom(hasIncompatibility, gVar)))));
-        
-        checkingRules.add(new StrictInferenceRule<>(new FolAtom(executive, gVar), Arrays.asList(new FolAtom(hasPlansFor, gVar), new FolAtom(satisfiedContext, gVar))));
-        
+
+        signature.add(incompatible);
+        signature.add(preferred);
+        signature.add(eqPreferred);
+        signature.add(defends);
+
+        StrictInferenceRuleWithId<FolFormula> rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(mostValuable, gVar1)));
+        deliberationRules.add(rule);
+        rule.setRuleId("R_de^009");
+
+        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(new FolAtom(notHasIncompatibility, gVar1))));
+        deliberationRules.add(rule);
+        rule.setRuleId("R_de^001");
+
+        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(preferred, gVar1, gVar2)));
+        deliberationRules.add(rule);
+        rule.setRuleId("R_de^002");
+
+        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(eqPreferred, gVar1, gVar2)));
+        deliberationRules.add(rule);
+        rule.setRuleId("R_de^003");
+
+        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(defends, gVar3, gVar1, gVar2)));
+        deliberationRules.add(rule);
+        rule.setRuleId("R_de^004");
+
+        rule = new StrictInferenceRuleWithId<>(new FolAtom(executive, gVar1), Arrays.asList(new FolAtom(hasPlansFor, gVar1), new FolAtom(satisfiedContext, gVar1)));
+        checkingRules.add(rule);
+        rule.setRuleId("R_ch^001");
+
     }
 
     public Constant getNextGoalConstant() {
@@ -207,17 +404,21 @@ public class Agent {
         return newGoal;
     }
 
+    public Integer idleCyclesCount() {
+        return idle;
+    }
+
     protected AspicArgumentationTheoryFol evaluateCompetency() {
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator());
 
         FolParser fParser = new FolParser();
         fParser.setSignature(signature);
 
-        for (Goal pursuableGoal : goals.getGoalByStage(GoalStage.Pursuable)) {
+        for (Goal pursuableGoal : goals.getGoalAtLeastAtStage(GoalStage.Pursuable)) {
             if (!planLib.get(pursuableGoal.getGoalBase()).isEmpty()) {
 
                 try {
-                    theory.addAxiom(fParser.parseFormula(HAS_PLANS_FOR_STR+"(" + pursuableGoal.getGoalTerm().get() + ")"));
+                    theory.addAxiom(fParser.parseFormula(HAS_PLANS_FOR_STR + "(" + pursuableGoal.getGoalTerm().get() + ")"));
                 } catch (IOException | ParserException ex) {
                     Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -346,6 +547,10 @@ public class Agent {
         // superfluidity : same concuclusion or sub arguments of an argument with same conclusion (as long as there isn't the same subargument among them)
         HashMap<Argument, Goal> argToGoalMap = new HashMap<>();
         DungTheory attackTheory = new DungTheory();
+
+        FolParser fParser = new FolParser();
+        fParser.setSignature(signature);
+
         // for each goal
         for (Goal g : goals.getGoalByStage(GoalStage.Pursuable)) {
             // for each plan
@@ -361,18 +566,18 @@ public class Agent {
                 attackTheory.add(arg);
             }
         }
-        
-        for(Goal g : goals.getGoalByStage(GoalStage.Choosen)) {
+
+        for (Goal g : goals.getGoalByStage(GoalStage.Choosen)) {
             Argument arg = new Argument(g.getFullPredicate().toString() + "_" + (g.getSugestedPlanIndex()));
-            
+
             argToGoalMap.put(arg, g);
 
             attackTheory.add(arg);
         }
-        
-        for(Goal g : goals.getGoalByStage(GoalStage.Executive)) {
+
+        for (Goal g : goals.getGoalByStage(GoalStage.Executive)) {
             Argument arg = new Argument(g.getFullPredicate().toString() + "_" + (g.getSugestedPlanIndex()));
-            
+
             argToGoalMap.put(arg, g);
 
             attackTheory.add(arg);
@@ -391,30 +596,60 @@ public class Agent {
                 Plan pGJ = planLib.get(gJ.getGoalBase()).get(Integer.parseInt(ax[ax.length - 1]));
 
                 boolean addAttack = false;
+                String attackType = "";
                 // if their context is incompatible add an attack
                 if (!isBeliefCompatible(pGK.getBeliefContext(), pGJ.getBeliefContext())) {
                     addAttack = true;
+                    attackType += "t";
                 }
                 // if there is not enough resource for both add an attack
                 if (!resources.checkCompatibility(pGK.getResourceContext(), pGJ.getResourceContext())) {
                     addAttack = true;
+                    attackType += "r";
                 }
                 // if the goal is the same add an attack
                 if (gK == gJ) {
                     addAttack = true;
+                    attackType += "s";
                 }
 
                 if (addAttack) {
                     double gKPref = (gK.getStage() == GoalStage.Pursuable ? gK.getGoalBase().getPreference() : 1.1);
                     double gJPref = (gJ.getStage() == GoalStage.Pursuable ? gJ.getGoalBase().getPreference() : 1.1);
-                    
+
                     if (gJPref > gKPref) {
                         attackTheory.addAttack(args[j], args[k]);
-                    } else if(gJPref < gKPref){
+
+                        try {
+                            theory.addAxiom(fParser.parseFormula(PREFERRED_STR + "(" + argToGoalMap.get(args[j]).getGoalTerm().get() + ", " + argToGoalMap.get(args[k]).getGoalTerm().get() + ")"));
+                        } catch (IOException | ParserException ex) {
+                            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    } else if (gJPref < gKPref) {
                         attackTheory.addAttack(args[k], args[j]);
-                    }else if(gKPref <= 1.0){
+
+                        try {
+                            theory.addAxiom(fParser.parseFormula(PREFERRED_STR + "(" + argToGoalMap.get(args[k]).getGoalTerm().get() + ", " + argToGoalMap.get(args[j]).getGoalTerm().get() + ")"));
+                        } catch (IOException | ParserException ex) {
+                            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    } else if (gKPref <= 1.0) {
                         attackTheory.addAttack(args[j], args[k]);
                         attackTheory.addAttack(args[k], args[j]);
+
+                        try {
+                            theory.addAxiom(fParser.parseFormula(EQ_PREFERRED_STR + "(" + argToGoalMap.get(args[k]).getGoalTerm().get() + ", " + argToGoalMap.get(args[j]).getGoalTerm().get() + ")"));
+                            theory.addAxiom(fParser.parseFormula(EQ_PREFERRED_STR + "(" + argToGoalMap.get(args[j]).getGoalTerm().get() + ", " + argToGoalMap.get(args[k]).getGoalTerm().get() + ")"));
+                        } catch (IOException | ParserException ex) {
+                            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+                        }
+                    }
+
+                    try {
+                        theory.addAxiom(fParser.parseFormula(INCOMPATIBLE_STR + "(" + argToGoalMap.get(args[k]).getGoalTerm().get() + ", " + argToGoalMap.get(args[j]).getGoalTerm().get() + "," + attackType + ")"));
+                        theory.addAxiom(fParser.parseFormula(INCOMPATIBLE_STR + "(" + argToGoalMap.get(args[j]).getGoalTerm().get() + ", " + argToGoalMap.get(args[k]).getGoalTerm().get() + "," + attackType + ")"));
+                    } catch (IOException | ParserException ex) {
+                        Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
                     }
                 }
             }
@@ -428,14 +663,24 @@ public class Agent {
         // choose extension
         Extension compatibleGoals = getCompatibleGoalsExtension(models, argToGoalMap);
 
-        FolParser fParser = new FolParser();
-        fParser.setSignature(signature);
-
         for (Argument arg : compatibleGoals) {
             try {
                 String[] ax = arg.getName().split("_");
-                argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 1]));
-                theory.addAxiom(fParser.parseFormula("!"+HAS_INCOMPATIBILITY_STR+"(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+
+                if (attackTheory.getAttackers(arg).isEmpty() && attackTheory.getAttacked(arg).isEmpty()) {
+                    argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 1]));
+                    theory.addAxiom(fParser.parseFormula(NOT_HAS_INCOMPATIBILITY_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+                    continue;
+                }
+
+                for (Argument attacker : attackTheory.getAttackers(arg)) {
+                    for (Argument defender : attackTheory.getAttackers(attacker)) {
+                        theory.addAxiom(fParser.parseFormula(DEEFNDS_STR + "(" + argToGoalMap.get(defender).getGoalTerm().get() + ", " + argToGoalMap.get(arg).getGoalTerm().get() + ", " + argToGoalMap.get(attacker).getGoalTerm().get() + ")"));
+                    }
+                }
+
+//                argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 1]));
+//                theory.addAxiom(fParser.parseFormula(NOT_HAS_INCOMPATIBILITY_STR+"(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
             } catch (IOException | ParserException ex) {
                 Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -490,7 +735,7 @@ public class Agent {
                     }
                 }
                 try {
-                    theory.addAxiom(fParser.parseFormula((validContext ? "" : "!") + SATISFIED_CONTEXT_STR +"(" + choosenGoal.getGoalTerm().get() + ")"));
+                    theory.addAxiom(fParser.parseFormula((validContext ? "" : "!") + SATISFIED_CONTEXT_STR + "(" + choosenGoal.getGoalTerm().get() + ")"));
                 } catch (IOException | ParserException ex) {
                     Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -501,10 +746,27 @@ public class Agent {
     }
 
     public void perceive() {
-        while(!perceptionQueue.isEmpty()){
-            FolFormula formula = perceptionQueue.pop();
-            
+//        while (!perceptionQueue.isEmpty()) {
+//            FolFormula formula = perceptionQueue.pop();
+//
+//            beliefs.addOrdinaryPremise(formula);
+//        }
+        while (!beliefAdditionQueue.isEmpty()) {
+            FolFormula formula = beliefAdditionQueue.pop();
             beliefs.addOrdinaryPremise(formula);
+        }
+
+        while (!beliefDeletionQueue.isEmpty()) {
+            FolFormula formula = beliefDeletionQueue.pop();
+            beliefs.removeIf((InferenceRule<FolFormula> arg0) -> {
+                if (arg0.getPremise().isEmpty()) {
+                    if (formula.toString().equals(arg0.getConclusion().toString())) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
         }
     }
 
@@ -550,7 +812,10 @@ public class Agent {
         DungTheory dTheory = theory.asDungTheory();
         Extension selected = selectExtension_ActivationStage(prefSemantic.getModels(dTheory));
 
-        for (Argument arg : selected) {
+        HashMap<Goal, ArrayList<Argument>> argumentsForGoal = new HashMap<>();
+
+//        for (Argument arg : selected) {
+        for (Argument arg : dTheory) {
             if (arg instanceof AspicArgument) {
                 AspicArgument<FolFormula> aarg = (AspicArgument) arg;
 
@@ -564,14 +829,47 @@ public class Agent {
 
                 for (Term t : conc.getTerms()) {
                     if (t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)) {
-                        Goal g = goals.createGoal(((FolAtom) conc).getPredicate(), (FolAtom) conc);
-                        
-                        if(g != null)
-                            goalMemory.add(new GoalMemory(agentCycle, g, arg, dTheory, selected));
+                        boolean accepted = selected.contains(arg);
+
+                        if (accepted) {
+                            Goal g = goals.createGoal(((FolAtom) conc).getPredicate(), (FolAtom) conc);
+
+                            if (g != null) {
+//                                goalMemory.add(new GoalMemory(agentCycle, g, arg, dTheory, selected));
+
+                                ArrayList<Argument> list = argumentsForGoal.get(g);
+                                if (list == null) {
+                                    list = new ArrayList<>();
+                                    argumentsForGoal.put(g, list);
+                                }
+
+                                list.add(arg);
+                                changed = true;
+                            }
+
+                        } else {
+                            Goal g = goals.createGoal(((FolAtom) conc).getPredicate(), (FolAtom) conc, false);
+
+                            ArrayList<Argument> list = argumentsForGoal.get(g);
+                            if (list == null) {
+                                list = new ArrayList<>();
+                                argumentsForGoal.put(g, list);
+                            }
+
+                            list.add(arg);
+                        }
 
                         break;
                     }
                 }
+            }
+        }
+
+        for (Goal g : argumentsForGoal.keySet()) {
+            List<Argument> targets = argumentsForGoal.get(g);
+
+            if (g.getStage() == GoalStage.Active) {
+                goalMemory.add(new GoalMemory(this, agentCycle, g, true, targets, dTheory, selected));
             }
         }
     }
@@ -615,33 +913,50 @@ public class Agent {
 
         AbstractExtensionReasoner prefSemantic = AbstractExtensionReasoner.getSimpleReasonerForSemantics(Semantics.PREFERRED_SEMANTICS);
 
-        Extension selected = selectExtension_EvaluationStage(prefSemantic.getModels(theory.asDungTheory()));
+        DungTheory dTheory = theory.asDungTheory();
+        Extension selected = selectExtension_EvaluationStage(prefSemantic.getModels(dTheory));
 
         HashSet<Goal> activeGoals = (HashSet) goals.getGoalByStage(GoalStage.Active);
 
-        for (Argument arg : selected) {
+        Set<Goal> active = goals.getGoalByStage(GoalStage.Active);
+        HashMap<Goal, ArrayList<Argument>> argumentsForGoal = new HashMap<>();
+
+//        for (Argument arg : selected) {
+        for (Argument arg : dTheory) {
             if (arg instanceof AspicArgument) {
                 AspicArgument<FolFormula> aarg = (AspicArgument) arg;
 
                 FolFormula conc = aarg.getConclusion();
 
-                if (conc instanceof Negation) {
-                    for (Term t : conc.getTerms()) {
-                        if (t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)) {
-                            ArrayList<Goal> rem = new ArrayList<>();
+                for (Term t : conc.getTerms()) {
+                    if (t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)) {
+                        ArrayList<Goal> rem = new ArrayList<>();
 
-                            for (Goal gAx : activeGoals) {
-                                if (gAx.getFullPredicate().equals(conc.complement())) {
+                        for (Goal gAx : activeGoals) {
+                            if (FolFormulaUtils.equalsWithSubstitution(gAx.getFullPredicate(), (FolFormula) conc.complement(), gHolder)) {
+                                boolean accepted = selected.contains(arg);
+
+                                ArrayList<Argument> list = argumentsForGoal.get(gAx);
+                                if (list == null) {
+                                    list = new ArrayList<>();
+                                    argumentsForGoal.put(gAx, list);
+                                }
+
+                                list.add(arg);
+
+                                if (accepted) {
                                     rem.add(gAx);
                                 }
-                            }
 
-                            for (Goal g : rem) {
-                                activeGoals.remove(g);
+                                break;
                             }
-
-                            break;
                         }
+
+                        for (Goal g : rem) {
+                            activeGoals.remove(g);
+                        }
+
+                        break;
                     }
                 }
             }
@@ -649,8 +964,23 @@ public class Agent {
 
         for (Goal g : activeGoals) {
             g.setStage(GoalStage.Pursuable);
-            
-            goalMemory.add(new GoalMemory(agentCycle, g, null, null, selected));
+            changed = true;
+//            goalMemory.add(new GoalMemory(agentCycle, g, null, null, selected));
+        }
+
+        for (Goal g : active) {
+            List<Argument> targets = null;
+            if (argumentsForGoal.containsKey(g)) {
+                targets = argumentsForGoal.get(g);
+                if (g.getStage() == GoalStage.Pursuable) {
+                    goalMemory.add(new GoalMemory(this, agentCycle, g, true, targets, dTheory, selected));
+                    continue;
+                }
+            }
+
+            Goal gClone = g.clone();
+            gClone.setStage(GoalStage.Pursuable);
+            goalMemory.add(new GoalMemory(this, agentCycle, gClone, true, targets, dTheory, selected));
         }
     }
 
@@ -700,8 +1030,11 @@ public class Agent {
         Extension selected = selectExtension_DeliberationStage(prefSemantic.getModels(dTheory));
 
 //        HashSet<Goal> choosenGoals = new HashSet<>();
+        Set<Goal> pursuable = goals.getGoalByStage(GoalStage.Pursuable);
+        HashMap<Goal, ArrayList<Argument>> argumentsForGoal = new HashMap<>();
 
-        for (Argument arg : selected) {
+//        for (Argument arg : selected) {
+        for (Argument arg : dTheory) {
             if (arg instanceof AspicArgument) {
                 AspicArgument<FolFormula> aarg = (AspicArgument) arg;
 
@@ -711,12 +1044,24 @@ public class Agent {
                     if (((FolAtom) conc).getPredicate().getName().equals(CHOOSEN_STR)) {
                         for (Term t : conc.getTerms()) {
                             if (t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)) {
-                                for (Goal gAx : goals.getGoalByStage(GoalStage.Pursuable)) {
+                                for (Goal gAx : pursuable) {
                                     if (gAx.getGoalTerm().equals(t)) {
 //                                        choosenGoals.add(gAx);
-                                        
-                                        gAx.setStage(GoalStage.Choosen);
-                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
+                                        boolean accepted = selected.contains(arg);
+
+                                        ArrayList<Argument> list = argumentsForGoal.get(gAx);
+                                        if (list == null) {
+                                            list = new ArrayList<>();
+                                            argumentsForGoal.put(gAx, list);
+                                        }
+
+                                        list.add(arg);
+
+                                        if (accepted) {
+                                            gAx.setStage(GoalStage.Choosen);
+                                            changed = true;
+//                                            goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
+                                        }
                                     }
                                 }
 
@@ -726,6 +1071,21 @@ public class Agent {
                     }
                 }
             }
+        }
+
+        for (Goal g : pursuable) {
+            List<Argument> targets = null;
+            if (argumentsForGoal.containsKey(g)) {
+                targets = argumentsForGoal.get(g);
+                if (g.getStage() == GoalStage.Choosen) {
+                    goalMemory.add(new GoalMemory(this, agentCycle, g, true, targets, dTheory, selected));
+                    continue;
+                }
+            }
+
+            Goal gClone = g.clone();
+            gClone.setStage(GoalStage.Choosen);
+            goalMemory.add(new GoalMemory(this, agentCycle, gClone, false, targets, dTheory, selected));
         }
 
 //        for (Goal g : choosenGoals) {
@@ -780,7 +1140,11 @@ public class Agent {
 
         HashSet<Goal> executiveGoals = new HashSet<>();
 
-        for (Argument arg : selected) {
+        Set<Goal> choosen = goals.getGoalByStage(GoalStage.Choosen);
+        HashMap<Goal, ArrayList<Argument>> argumentsForGoal = new HashMap<>();
+
+//        for (Argument arg : selected) {
+        for (Argument arg : dTheory) {
             if (arg instanceof AspicArgument) {
                 AspicArgument<FolFormula> aarg = (AspicArgument) arg;
 
@@ -790,12 +1154,26 @@ public class Agent {
                     if (((FolAtom) conc).getPredicate().getName().equals(EXECUTIVE_STR)) {
                         for (Term t : conc.getTerms()) {
                             if (t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)) {
-                                for (Goal gAx : goals.getGoalByStage(GoalStage.Choosen)) {
+                                for (Goal gAx : choosen) {
                                     if (gAx.getGoalTerm().equals(t)) {
-                                        executiveGoals.add(gAx);
-                                        
-                                        gAx.setStage(GoalStage.Executive);
-                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
+                                        boolean accepted = selected.contains(arg);
+
+                                        ArrayList<Argument> list = argumentsForGoal.get(gAx);
+                                        if (list == null) {
+                                            list = new ArrayList<>();
+                                            argumentsForGoal.put(gAx, list);
+                                        }
+
+                                        list.add(arg);
+
+                                        if (accepted) {
+                                            executiveGoals.add(gAx);
+
+                                            gAx.setStage(GoalStage.Executive);
+                                            changed = true;
+                                        }
+
+//                                        goalMemory.add(new GoalMemory(agentCycle, gAx, arg, dTheory, selected));
                                     }
                                 }
 
@@ -807,12 +1185,27 @@ public class Agent {
             }
         }
 
+        for (Goal g : choosen) {
+            List<Argument> targets = null;
+            if (argumentsForGoal.containsKey(g)) {
+                targets = argumentsForGoal.get(g);
+                if (g.getStage() == GoalStage.Executive) {
+                    goalMemory.add(new GoalMemory(this, agentCycle, g, true, targets, dTheory, selected));
+                    continue;
+                }
+            }
+
+            Goal gClone = g.clone();
+            gClone.setStage(GoalStage.Executive);
+            goalMemory.add(new GoalMemory(this, agentCycle, gClone, false, targets, dTheory, selected));
+        }
+
         for (Goal g : executiveGoals) {
 //            g.setStage(GoalStage.Executive);
             // save as intention
             Plan p = planLib.get(g.getGoalBase()).get(g.getSugestedPlanIndex());
 
-            Intention newInt = new Intention(g, p, p.getUnifiedSet(g.getFullPredicate()));
+            Intention newInt = new Intention(this, g, p, p.getUnifiedSet(g.getFullPredicate()));
 
             activeIntentions.add(newInt);
         }
@@ -820,6 +1213,8 @@ public class Agent {
     }
 
     public void processGoals() {
+        changed = false;
+
         activationStage();
 
         evaluationStage();
@@ -844,58 +1239,90 @@ public class Agent {
 
         if (intent != null) {
             intent.executeNextStep();
+            idle = 0;
+        } else {
+            if (!changed) {
+                idle++;
+            }
+        }
+
+        if (!activeIntentions.isEmpty()) {
             intentionListPointer++;
             intentionListPointer %= activeIntentions.size();
         }
+    }
 
+    public void completeIntention(Intention intention) {
+        if (!activeIntentions.contains(intention)) {
+            return;
+        }
+
+        FolAtom fullF = intention.getGoal().getFullPredicate();
+        Plan plan = intention.getPlan();
+
+        Map<FolFormula, Boolean> beliefChanges = plan.getUnifiedBeliefPostConditionsSet(fullF);
+
+        for (FolFormula f : beliefChanges.keySet()) {
+            if (beliefChanges.get(f)) {
+                beliefAdditionQueue.add(f);
+            } else {
+                beliefDeletionQueue.add(f);
+            }
+        }
+
+        Map<String, Double> resourceChanges = plan.getResourcePostConditionsSet();
+        for (String res : resourceChanges.keySet()) {
+            addResource(res, resourceChanges.get(res));
+        }
+
+        intention.getGoal().setStage(GoalStage.Completed);
+        goalMemory.add(new GoalMemory(this, agentCycle, intention.getGoal(), true, null, null, null));
+        activeIntentions.remove(intention);
     }
 
     public void doAction() {
 
     }
 
-    protected void removeBelief(FolFormula formula){
-        InferenceRule toRemove = null;
-        
-        for(InferenceRule<FolFormula> rule : beliefs){
-            if(rule.getConclusion().equals(formula)){
-                toRemove = rule;
-                break;
-            }
-        }
-        
-        if(toRemove != null){
-            beliefs.remove(toRemove);
-        }
+    public boolean removeBelief(FolFormula formula) {
+        return beliefDeletionQueue.add(formula);
     }
-    
+
     public void updateBeliefs() {
-        while(!beliefDeletionQueue.isEmpty()){
+        while (!beliefDeletionQueue.isEmpty()) {
             FolFormula formula = beliefDeletionQueue.pop();
-            
-            removeBelief(formula);
-        }
-        
-        while(!beliefAdditionQueue.isEmpty()){
-            FolFormula formula = beliefAdditionQueue.pop();
-            
-            if(beliefs.contains(new DefeasibleInferenceRule<>((FolFormula)formula.complement(), null))){
-                removeBelief((FolFormula)formula.complement());
-            }else{
-                beliefs.addOrdinaryPremise(formula);
+
+            InferenceRule toRemove = null;
+
+            for (InferenceRule<FolFormula> rule : beliefs) {
+                if (rule.getConclusion().equals(formula)) {
+                    toRemove = rule;
+                    break;
+                }
             }
+
+            if (toRemove != null) {
+                beliefs.remove(toRemove);
+            }
+        }
+
+        while (!beliefAdditionQueue.isEmpty()) {
+            FolFormula formula = beliefAdditionQueue.pop();
+
+            beliefs.addOrdinaryPremise(formula);
         }
     }
 
     public void singleCycle() {
         this.agentCycle++;
-        
-        perceive();
+
+//        perceive();
+        updateBeliefs();
         processGoals();
         selectIntention();
 //        doAction();
         updateBeliefs();
-        
+
     }
 
     public FolSignature getSignature() {
@@ -915,198 +1342,263 @@ public class Agent {
 
         return added;
     }
-    
-    public boolean addBelief(FolFormula formula){
+
+    public boolean addBelief(FolFormula formula) {
         return beliefAdditionQueue.add(formula);
     }
-    
-    public boolean addPerception(FolFormula formula){
-        return perceptionQueue.add(formula);
-    }
-    
-    public boolean addPlanTemplate(Plan plan){
-        if(plan == null) return false;
-        
-        if(goals.contaisSleepingGoal(plan.getGoal())){
-            if(!planLib.get(plan.getGoal()).contains(plan)){
+//
+//    public boolean addPerception(FolFormula formula) {
+//        return perceptionQueue.add(formula);
+//    }
+
+    public boolean addPlanTemplate(Plan plan) {
+        if (plan == null) {
+            return false;
+        }
+
+        if (goals.contaisSleepingGoal(plan.getGoal())) {
+            if (!planLib.get(plan.getGoal()).contains(plan)) {
                 planLib.get(plan.getGoal()).add(plan);
                 return true;
             }
         }
-        
+
         return false;
     }
-    
-    public void addResource(String resource, Double amount){
+
+    public Map<SleepingGoal, ArrayList<Plan>> getPlanLibrary() {
+        return planLib;
+    }
+
+    public void addResource(String resource, Double amount) {
         resources.addResource(resource, amount);
     }
-    
-    public void cancelAllExecutiveGoals(){
-        for(Goal g : goals.getGoalByStage(GoalStage.Executive)){
+
+    public void cancelAllExecutiveGoals() {
+        for (Goal g : goals.getGoalByStage(GoalStage.Executive)) {
             g.setStage(GoalStage.Cancelled);
-            goalMemory.add(new GoalMemory(agentCycle, g, null, null, null));
+            goalMemory.add(new GoalMemory(this, agentCycle, g, true, null, null, null));
         }
-    }
-
-    public static void main(String... args) throws IOException {
-        Agent a = modelA();
-
-        a.processGoals();
-
-        System.out.println("");
-    }
-
-    protected static Agent modelA() throws IOException {
-        Agent a = new Agent();
-
-        FolParser fParser = new FolParser();
-        fParser.setSignature(a.signature);
-
-        Constant goalHolder = new Constant("gHolder", a.goalSort);
-        a.signature.add(goalHolder);
-
-        Predicate takeHospital = new Predicate("take_hospital", Arrays.asList(a.goalSort, Sort.THING));
-        Predicate go = new Predicate("go", Arrays.asList(a.goalSort, Sort.THING, Sort.THING));
-        Predicate sendShelter = new Predicate("send_shelter", Arrays.asList(a.goalSort, Sort.THING));
-
-        a.signature.add(takeHospital);
-        a.signature.add(go);
-        a.signature.add(sendShelter);
-
-        SleepingGoal sgTakeHosp = new SleepingGoal((FolAtom) fParser.parseFormula("take_hospital(G,X)"));
-        sgTakeHosp.setPreference(1.0);
-        a.addSleepingGoal(sgTakeHosp);
-
-        SleepingGoal sgGo = new SleepingGoal((FolAtom) fParser.parseFormula("go(G,X,Y)"));
-        sgGo.setPreference(0.1);
-        a.addSleepingGoal(sgGo);
-
-        SleepingGoal sgSendSh = new SleepingGoal((FolAtom) fParser.parseFormula("send_shelter(G,X)"));
-        sgSendSh.setPreference(0.5);
-        a.addSleepingGoal(sgSendSh);
-
-        Constant arm = new Constant("arm");
-        a.signature.add(arm);
-
-        Predicate available = new Predicate("available", Arrays.asList(Sort.THING, Sort.THING));
-        Predicate newSupply = new Predicate("new_supply", Arrays.asList(Sort.THING));
-        Predicate hasFractBone = new Predicate("has_fract_bone", Arrays.asList(Sort.THING));
-        Predicate fractBone = new Predicate("fract_bone", Arrays.asList(Sort.THING, Sort.THING));
-        Predicate injuredSevere = new Predicate("injured_severe", Arrays.asList(Sort.THING));
-        Predicate open_Fracture = new Predicate("open_fracture", Arrays.asList(Sort.THING));
-
-        a.signature.add(available);
-        a.signature.add(newSupply);
-        a.signature.add(hasFractBone);
-        a.signature.add(fractBone);
-        a.signature.add(injuredSevere);
-        a.signature.add(open_Fracture);
-
-        a.standardRules.add(new StrictInferenceRule<>(fParser.parseFormula("available(X,Y)"), Arrays.asList(fParser.parseFormula("new_supply(X)"))));
-        a.standardRules.add(new DefeasibleInferenceRule<>(fParser.parseFormula("has_fract_bone(X)"), Arrays.asList(fParser.parseFormula("injured_severe(X)"))));
-        a.standardRules.add(new DefeasibleInferenceRule<>(fParser.parseFormula("fract_bone(X, arm)"), Arrays.asList(fParser.parseFormula("!injured_severe(X)"))));
-        a.standardRules.add(new StrictInferenceRule<>(fParser.parseFormula("injured_severe(X)"), Arrays.asList(fParser.parseFormula("open_fracture(X)"))));
-
-        Predicate askedForHelp = new Predicate("asked_for_help", Arrays.asList(Sort.THING, Sort.THING));
-
-        a.signature.add(askedForHelp);
-
-        a.activationRules.add(new StrictInferenceRule<>(fParser.parseFormula("take_hospital(G,X)"), Arrays.asList(fParser.parseFormula("injured_severe(X)"))));
-        a.activationRules.add(new StrictInferenceRule<>(fParser.parseFormula("send_shelter(G,X)"), Arrays.asList(fParser.parseFormula("!injured_severe(X)"))));
-        a.activationRules.add(new DefeasibleInferenceRule<>(fParser.parseFormula("go(G,X,Y)"), Arrays.asList(fParser.parseFormula("asked_for_help(X,Y)"))));
-
-        Constant bed = new Constant("bed");
-        a.signature.add(bed);
-
-        Predicate supportWeigth = new Predicate("support_weight", Arrays.asList(Sort.THING));
-
-        a.signature.add(supportWeigth);
-
-        a.evaluationRules.add(new StrictInferenceRule<>(fParser.parseFormula("!take_hospital(G,X)"), Arrays.asList(fParser.parseFormula("!support_weight(X)"))));
-        a.evaluationRules.add(new StrictInferenceRule<>(fParser.parseFormula("!take_hospital(G,X)"), Arrays.asList(fParser.parseFormula("!available(bed, X)"))));
-
-        Predicate hasIncompatibility = new Predicate("has_incompatibility", Arrays.asList(a.goalSort));
-        Predicate mostValuable = new Predicate("most_valuable", Arrays.asList(a.goalSort));
-        Predicate choosen = new Predicate("choosen", Arrays.asList(a.goalSort));
-
-        a.signature.add(hasIncompatibility);
-        a.signature.add(mostValuable);
-        a.signature.add(choosen);
-
-        a.deliberationRules.add(new StrictInferenceRule<>(fParser.parseFormula("choosen(G)"), Arrays.asList(fParser.parseFormula("!has_incompatibility(G)"))));
-        a.deliberationRules.add(new StrictInferenceRule<>(fParser.parseFormula("choosen(G)"), Arrays.asList(fParser.parseFormula("most_valuable(G)"))));
-
-        Predicate hasPlansFor = new Predicate("has_plans_for", Arrays.asList(a.goalSort));
-        Predicate satisfiedContext = new Predicate("satisfied_context", Arrays.asList(a.goalSort));
-        Predicate executive = new Predicate("executive", Arrays.asList(a.goalSort));
-
-        a.signature.add(hasPlansFor);
-        a.signature.add(satisfiedContext);
-        a.signature.add(executive);
-
-        a.checkingRules.add(new StrictInferenceRule<>(fParser.parseFormula("executive(G)"), Arrays.asList(fParser.parseFormula("has_plans_for(G)"), fParser.parseFormula("satisfied_context(G)"))));
-
-        Constant me = new Constant("me");
-        Constant man32 = new Constant("man_32");
-        Constant pos2 = new Constant("p2");
-        Constant pos6 = new Constant("p6");
-
-        a.signature.add(me);
-        a.signature.add(man32);
-        a.signature.add(pos2);
-        a.signature.add(pos6);
-
-        Predicate beOperative = new Predicate("be_operative", Arrays.asList(Sort.THING));
-
-        a.signature.add(beOperative);
-
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("be_operative(me)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("has_fract_bone(man_32)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("fract_bone(man_32, arm)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("asked_for_help(p2, p6)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("open_fracture(man_32)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("!available(bed,Y)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("new_supply(bed)"));
-        a.beliefs.addOrdinaryPremise(fParser.parseFormula("support_weight(man_32)"));
-
-        Predicate goalPlaceHolder = new Predicate("goal_place_holder", Arrays.asList(a.goalSort));
-
-        a.signature.add(goalPlaceHolder);
-
-        a.beliefs.addAxiom(fParser.parseFormula("goal_place_holder(gHolder)"));
-
-        HashSet<FolFormula> beliefContext = new HashSet<>();
-        beliefContext.add(fParser.parseFormula("be_operative(me)"));
-
-        HashMap<String, Double> resourceContext = new HashMap<>();
-        resourceContext.put("battery", 40d);
-        Plan p1 = new Plan(sgTakeHosp, null, beliefContext, resourceContext);
-
-        beliefContext = new HashSet<>();
-        beliefContext.add(fParser.parseFormula("be_operative(me)"));
-
-        resourceContext = new HashMap<>();
-        resourceContext.put("battery", 50d);
-        Plan p2 = new Plan(sgGo, null, beliefContext, resourceContext);
-
-        beliefContext = new HashSet<>();
-        beliefContext.add(fParser.parseFormula("be_operative(me)"));
-
-        resourceContext = new HashMap<>();
-        resourceContext.put("battery", 5d);
-        Plan p3 = new Plan(sgSendSh, null, beliefContext, resourceContext);
-
-        a.planLib.get(sgTakeHosp).add(p1);
-        a.planLib.get(sgGo).add(p2);
-        a.planLib.get(sgSendSh).add(p3);
-
-        a.resources.addResource("battery", 80d);
-        a.resources.addResource("oil", 70d);
-
-        return a;
     }
 
     public List<GoalMemory> getGoalMemory() {
         return goalMemory.subList(0, goalMemory.size());
+    }
+
+    public String getBeliefBaseToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> belief : beliefs) {
+            if (belief.getConclusion() instanceof FolAtom) {
+                if (((FolAtom) belief.getConclusion()).getPredicate().getName().equals(GOAL_PLACE_HOLDER_PRED_STR)) {
+                    continue;
+                }
+                if (((FolAtom) belief.getConclusion()).getPredicate().getName().equals(TYPE_PLACE_HOLDER_PRED_STR)) {
+                    continue;
+                }
+            }
+            toString += belief.toString().trim();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getResourceBaseToString() {
+        String toString = "";
+
+        for (String res : resources.getAvailableResourcesNames()) {
+            toString += res.trim() + " : " + resources.getAvaliability(res);
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getStandardRulesToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> rule : standardRules) {
+            toString += rule.toString();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getActivationRulesToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> rule : activationRules) {
+            toString += rule.toString();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getEvaluationRulesToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> rule : evaluationRules) {
+            toString += rule.toString();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getDeliberationRulesToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> rule : deliberationRules) {
+            toString += rule.toString();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public String getCheckingRulesToString() {
+        String toString = "";
+
+        for (InferenceRule<FolFormula> rule : checkingRules) {
+            toString += rule.toString();
+            toString += "\r\n";
+        }
+
+        return toString;
+    }
+
+    public Long getCycle() {
+        return agentCycle;
+    }
+
+    public boolean noAvailableAction() {
+        if (!goals.getGoalByStage(GoalStage.Active).isEmpty()) {
+            return false;
+        }
+        if (!goals.getGoalByStage(GoalStage.Pursuable).isEmpty()) {
+            return false;
+        }
+        if (!goals.getGoalByStage(GoalStage.Choosen).isEmpty()) {
+            return false;
+        }
+        if (!goals.getGoalByStage(GoalStage.Executive).isEmpty()) {
+            return false;
+        }
+
+        return true;
+    }
+
+    public synchronized String getArgumentID(AspicArgument<FolFormula> arg) {
+        String id = argumentToIdMap.get(arg.toString());
+
+        if (id == null) {
+            String rId = getRuleID(arg);
+
+            if (!rId.isBlank()) {
+                String size = (argumentToIdMap.size() + 1) + "";
+                String count = "000".substring(3 - size.length()).concat(size);
+                String[] splitUnderscore = rId.split("_");
+                String type = "un";
+                if (splitUnderscore.length > 1) {
+                    String[] splitCirc = splitUnderscore[1].split("\\^");
+                    type = splitCirc[0];
+                } else if (!rId.matches("(-)?([0-9]+)")) {
+                    type = rId;
+                }
+                id = "A_" + type + "^" + count;
+                argumentToIdMap.put(arg.toString(), id);
+            } else {
+                String size = (argumentToIdMap.size() + 1) + "";
+                String count = "000".substring(3 - size.length()).concat(size);
+                id = "A_ins^" + count;;
+                argumentToIdMap.put(arg.toString(), id);
+            }
+        }
+
+        return id;
+    }
+
+    public synchronized String getArgumentConclusionID(AspicArgument<FolFormula> arg) {
+        String id = conclusionToIdMap.get(arg.getConclusion().toString());
+
+        if (id == null) {
+            String size = (conclusionToIdMap.size() + 1) + "";
+            String count = "000".substring(3 - size.length()).concat(size);
+            id = "bel_" + count;
+            conclusionToIdMap.put(arg.getConclusion().toString(), id);
+        }
+
+        return id;
+    }
+
+    public synchronized String getRuleID(AspicArgument<FolFormula> arg) {
+        String id = "";
+        if (arg.getTopRule() instanceof StrictInferenceRuleWithId) {
+            id = ((StrictInferenceRuleWithId) arg.getTopRule()).getRuleId();
+        } else if (arg.getTopRule() instanceof DefeasibleInferenceRuleWithId) {
+            id = ((DefeasibleInferenceRuleWithId) arg.getTopRule()).getRuleId();
+        }
+        if (id == null) {
+            return "";
+        }
+        return id;
+    }
+
+    public boolean isRuleStrict(AspicArgument<FolFormula> arg) {
+        return !arg.getTopRule().isDefeasible();
+    }
+
+    public static FolFormula parseFolFormulaSafe(String toParse, FolSignature sign) {
+        try {
+            FolParser parser = new FolParser();
+            parser.setSignature(sign);
+
+            Pattern PREDICATE_PATTERN = Pattern.compile("\\s*(!\\s*)?\\s*(\\w+(\\(\\s*\\w+(\\s*,\\s*\\w+)*\\s*\\))?)\\s*");
+
+            Matcher matcher = PREDICATE_PATTERN.matcher(toParse);
+            if (matcher.matches()) {
+                String termSet = matcher.group(3);
+                int arity = 0;
+                if (termSet != null) {
+                    String[] termList = termSet.replace("(", "").replace(")", "").split(",");
+                    arity = termList.length;
+
+                    for (String term : termList) {
+                        term = term.trim();
+                        if (term.matches("^[a-z].*")) {
+                            if (!sign.containsConstant(term)) {
+                                sign.add(new Constant(term));
+                            }
+                        }
+                    }
+                }
+
+                String predicate = matcher.group(2).replace(termSet, "").trim();
+                if (!sign.containsPredicate(predicate)) {
+                    sign.add(new Predicate(predicate, arity));
+                }
+
+                FolFormula formula = parser.parseFormula(matcher.group(2));
+
+                Boolean isNegative = "!".equals(matcher.group(1));
+
+                if (isNegative) {
+                    formula = new Negation(formula);
+                }
+
+                return formula;
+            }
+        } catch (IOException | ParserException ex) {
+            Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        return null;
+    }
+
+    public void resetIdleCycleCount() {
+        idle = 0;
     }
 }

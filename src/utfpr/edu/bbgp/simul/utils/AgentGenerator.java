@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package utfpr.edu.bbgp.simul.gui;
+package utfpr.edu.bbgp.simul.utils;
 
 import java.io.FileNotFoundException;
 import java.io.FileReader;
@@ -18,6 +18,7 @@ import net.sf.tweety.arg.aspic.syntax.AspicArgumentationTheory;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
 import net.sf.tweety.commons.util.Triple;
 import net.sf.tweety.logics.commons.syntax.Constant;
+import net.sf.tweety.logics.commons.syntax.Sort;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.parser.FolParser;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
@@ -26,10 +27,13 @@ import net.sf.tweety.logics.fol.syntax.FolSignature;
 import net.sf.tweety.logics.fol.syntax.Negation;
 import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.GoalMemory;
+import utfpr.edu.bbgp.agent.PerceptionEntry;
 import utfpr.edu.bbgp.agent.Plan;
+import utfpr.edu.bbgp.agent.PostCondition;
 import utfpr.edu.bbgp.agent.SleepingGoal;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
-import utfpr.edu.bbgp.extended.AspicFolParser;
+import utfpr.edu.bbgp.agent.parser.AspicFolParser;
+import utfpr.edu.bbgp.simul.utils.Quadruplet;
 
 /**
  *
@@ -49,6 +53,26 @@ public class AgentGenerator {
 
     public static Agent getAgentFromFolBase(Reader agentBeliefAndRuleSet) throws IOException {
         AspicFolParser aspicParser = new AspicFolParser(new FolParser(), new FolFormulaGenerator());
+        
+        FolSignature signature = aspicParser.getFolParser().getSignature();
+        Sort goalSort = signature.getSort(Agent.GOAL_SORT_TEXT);
+        if(goalSort == null){
+            goalSort = new Sort(Agent.GOAL_SORT_TEXT);
+            signature.add(goalSort);
+        }
+        Sort typeSort = signature.getSort(Agent.TYPE_SORT_TEXT);
+        if(typeSort == null){
+            typeSort = new Sort(Agent.TYPE_SORT_TEXT);
+            signature.add(typeSort);
+        }
+        signature.add(new Constant("t", typeSort));
+        signature.add(new Constant("r", typeSort));
+        signature.add(new Constant("s", typeSort));
+        signature.add(new Constant("tr", typeSort));
+        signature.add(new Constant("ts", typeSort));
+        signature.add(new Constant("rs", typeSort));
+        signature.add(new Constant("trs", typeSort));
+        signature.add(new Constant("none", typeSort));
 
         AspicArgumentationTheory<FolFormula> theory = aspicParser.parseBeliefBase(agentBeliefAndRuleSet);
 
@@ -82,9 +106,9 @@ public class AgentGenerator {
                 }
             }
         }
-        
-        FolSignature signature = aspicParser.getFolParser().getSignature();
-        signature.getSort(Agent.GOAL_SORT_TEXT).add(new Constant("gHolder", signature.getSort(Agent.GOAL_SORT_TEXT)));
+        signature.add(new Constant(Agent.GOAL_PLACE_HOLDER_CONST_STR, goalSort));
+        //Type = {t, r, s, tr, ts, rs, trs, none}
+//        signature.getSort(Agent.GOAL_SORT_TEXT).add(new Constant(Agent.GOAL_PLACE_HOLDER_CONST_STR, goalSort));
         
         
 
@@ -113,9 +137,9 @@ public class AgentGenerator {
         if(theory instanceof AspicArgumentationTheoryFol){
             AspicArgumentationTheoryFol theoryFol = (AspicArgumentationTheoryFol) theory;
             
-            for(Triple<FolFormula, HashSet<FolFormula>, HashMap<String, Double>> t : theoryFol.getPlanTemplates()){
-                if(formulaTosleepingGoalsMap.containsKey(t.getFirst())){
-                    a.addPlanTemplate(new Plan(formulaTosleepingGoalsMap.get(t.getFirst()), null, t.getSecond(), t.getThird()));
+            for(Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>> t : theoryFol.getPlanTemplates()){
+                if(formulaTosleepingGoalsMap.containsKey(t.getT())){
+                    a.addPlanTemplate(new Plan(formulaTosleepingGoalsMap.get(t.getT()), null, t.getU(), t.getV(), t.getW()));
                 }
             }
             
@@ -135,9 +159,5 @@ public class AgentGenerator {
         a.singleCycle();
 
         System.out.println("");
-        
-        for(GoalMemory gM : a.getGoalMemory()){
-            System.out.println(gM);
-        }
     }
 }

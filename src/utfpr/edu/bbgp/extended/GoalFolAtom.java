@@ -50,8 +50,10 @@ public class GoalFolAtom extends FolAtom{
             for(Term t : arguments){
                 hash = 31 * hash;
                 
-                if(!t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)){
-                    hash += (t == null ? 0 : t.hashCode());
+                if(t != null){
+                    if(!t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)){
+                        hash += t.hashCode();
+                    }
                 }
             }
             
