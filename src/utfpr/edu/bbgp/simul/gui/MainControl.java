@@ -391,31 +391,31 @@ public class MainControl extends JFrame {
         this.setTitle("" + agent.getCycle());
         String beliefBaseString = agent.getBeliefBaseToString();
         beliefBaseString = "Beliefs: \r\n" + beliefBaseString;
-        beliefBaseString = beliefBaseString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        beliefBaseString = beliefBaseString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String resourcesBaseString = agent.getResourceBaseToString();
         resourcesBaseString = "Resources: \r\n" + resourcesBaseString;
-        resourcesBaseString = resourcesBaseString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        resourcesBaseString = resourcesBaseString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String standardRuleString = agent.getStandardRulesToString();
         standardRuleString = "Standard Rules: \r\n" + standardRuleString;
-        standardRuleString = standardRuleString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        standardRuleString = standardRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String activationRuleString = agent.getActivationRulesToString();
         activationRuleString = "Activation Rules: \r\n" + activationRuleString;
-        activationRuleString = activationRuleString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        activationRuleString = activationRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String evaluationRuleString = agent.getEvaluationRulesToString();
         evaluationRuleString = "Evaluation Rules: \r\n" + evaluationRuleString;
-        evaluationRuleString = evaluationRuleString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        evaluationRuleString = evaluationRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String deliberationRuleString = agent.getDeliberationRulesToString();
         deliberationRuleString = "Deliberation Rules: \r\n" + deliberationRuleString;
-        deliberationRuleString = deliberationRuleString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\t - $", "\n");
+        deliberationRuleString = deliberationRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\t $", "\n");
 
         String checkingRuleString = agent.getCheckingRulesToString();
         checkingRuleString = "Checking Rules: \r\n" + checkingRuleString;
-        checkingRuleString = checkingRuleString.replaceAll("\r\n", "\r\n\t - ").replaceAll("\n\t - $", "");
+        checkingRuleString = checkingRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\n\t $", "");
 
         beliefBase.setText(beliefBaseString.concat(resourcesBaseString.concat(standardRuleString.concat(activationRuleString.concat(evaluationRuleString.concat(deliberationRuleString.concat(checkingRuleString)))))));
 

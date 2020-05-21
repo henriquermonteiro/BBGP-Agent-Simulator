@@ -13,6 +13,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.swing.JComponent;
 import net.sf.tweety.arg.aspic.syntax.AspicArgument;
 import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
 import net.sf.tweety.arg.dung.semantics.Extension;
@@ -20,6 +21,7 @@ import net.sf.tweety.arg.dung.syntax.Argument;
 import net.sf.tweety.arg.dung.syntax.DungTheory;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
+import utfpr.edu.bbgp.simul.utils.Tuple;
 
 /**
  *
@@ -34,6 +36,8 @@ public class GoalMemory {
     private final Collection<Argument> relevantArguments;
     private final HashMap<Argument, Boolean> acceptedArguments;
     private final Agent agent;
+    
+    private final HashSet<Tuple<Argument, Argument>> attackSet;
 
     public GoalMemory(Agent agent, Long agentCycle, Goal goal, boolean testAcceptance, List<Argument> support, DungTheory argFramework, Extension selectedExt) {
         this.agent = agent;
@@ -63,6 +67,7 @@ public class GoalMemory {
 
         this.support = support;
         this.acceptedArguments = new HashMap<>();
+        this.attackSet = new HashSet<>();
         this.relevantArguments = getRelevantArguments(support, argFramework, selectedExt);
     }
 
@@ -130,8 +135,14 @@ public class GoalMemory {
             changed = false;
             HashSet<Argument> auxSet = new HashSet<>();
             for (Argument inSet : queue) {
+                AspicArgument<FolFormula> argInSet = (AspicArgument<FolFormula>) inSet;
                 for (Argument attacker : argFramework.getAttacked(inSet)) {
                     AspicArgument<FolFormula> argAtt = (AspicArgument<FolFormula>) attacker;
+                    
+                    if(argAtt.getConclusion().equals((FolFormula)argInSet.getConclusion().complement())){
+                        attackSet.add(new Tuple<>(inSet, attacker));
+                    }
+                    
                     if (!set.contains(attacker)) {
                         auxSet.add(attacker);
                         acceptedArguments.put(attacker, selectedExt.contains(attacker));
@@ -151,16 +162,21 @@ public class GoalMemory {
         return set;
     }
 
+    private HashMap<Object, JComponent> elementsToComponentMap = new HashMap<>();
     public void showInCluster(ArgumentionFramework cluster) {
         if(cluster == null) return;
         
         cluster.clear();
         
+        HashMap<Object, ArrayList<Object>> attacksMap = new HashMap<>();
+        elementsToComponentMap.clear();
+        
         for(Argument arg : relevantArguments){
             boolean skip = false;
             
+            AspicArgument<FolFormula> argumentFol = (AspicArgument<FolFormula>) arg;
+            
             for(Argument arg2 : relevantArguments){
-                AspicArgument<FolFormula> argumentFol = (AspicArgument<FolFormula>) arg;
                 AspicArgument<FolFormula> argumentFol2 = (AspicArgument<FolFormula>) arg2;
                 
                 if(argumentFol.isSubArgumentOf(argumentFol2) && argumentFol != argumentFol2){
@@ -171,12 +187,30 @@ public class GoalMemory {
             
             if(skip) continue;
             
-            AspicArgument<FolFormula> argumentFol = (AspicArgument<FolFormula>) arg;
+//            AspicArgument<FolFormula> argumentFol = (AspicArgument<FolFormula>) arg;
+//            if(elementsToComponentMap.containsKey(arg)){
+//                cluster.add(elementsToComponentMap.get(arg));
+//                continue;
+//            }
+            
             boolean isFocus = false;
             if(support != null){
                 isFocus = support.contains(arg);
             }
-            cluster.addArgument(showArgumentInCluster(argumentFol, cluster, isFocus, acceptedArguments.get(arg)));
+            
+            utfpr.edu.argumentation.diagram.Argument argument = showArgumentInCluster(argumentFol, cluster, isFocus, acceptedArguments.get(arg));
+            elementsToComponentMap.put(arg, argument);
+            cluster.addArgument(argument);
+        }
+        
+        for(Tuple<Argument, Argument> attck : attackSet){
+            JComponent attacker = elementsToComponentMap.get(attck.getT());
+            JComponent attacked = elementsToComponentMap.get(attck.getU());
+            
+            if(attacker == null) continue;
+            if(attacked == null) continue;
+            
+            cluster.addAttack((utfpr.edu.argumentation.diagram.Argument)attacker, (utfpr.edu.argumentation.diagram.Argument)attacked, false);
         }
         
         cluster.repositionComponents();
@@ -195,7 +229,9 @@ public class GoalMemory {
         
         ArrayList<utfpr.edu.argumentation.diagram.Argument> subArgs = new ArrayList<>();
         for(AspicArgument<FolFormula> subA : arg.getDirectSubs()){
-            subArgs.add(showArgumentInCluster(subA, cluster, isFocus, acceptedArguments.get(subA)));
+            utfpr.edu.argumentation.diagram.Argument subArg = showArgumentInCluster(subA, cluster, isFocus, acceptedArguments.get(subA));
+            elementsToComponentMap.put(subA, subArg);
+            subArgs.add(subArg);
         }
         return new utfpr.edu.argumentation.diagram.Argument(conclusion, type, cluster, agent.getArgumentID(arg), agent.getRuleID(arg), ruleTooltip, agent.isRuleStrict(arg), subArgs.toArray(new utfpr.edu.argumentation.diagram.Argument[]{}));
     }
