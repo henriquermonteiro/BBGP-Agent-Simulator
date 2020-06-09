@@ -242,6 +242,7 @@ public class Agent {
     }
 
     Constant gHolder = null;
+
     protected void initializeBases() {
         Variable gVar1 = null;
         Variable gVar2 = null;
@@ -1558,10 +1559,24 @@ public class Agent {
 
             Pattern PREDICATE_PATTERN = Pattern.compile("\\s*(!\\s*)?\\s*(\\w+(\\(\\s*\\w+(\\s*,\\s*\\w+)*\\s*\\))?)\\s*");
 
+            Sort goalSort = null;
+            for (Sort sort : sign.getSorts()) {
+                if (sort.getName().equals(Agent.GOAL_SORT_TEXT)) {
+                    goalSort = sort;
+                }
+            }
+            if (goalSort == null) {
+                goalSort = new Sort(Agent.GOAL_SORT_TEXT);
+                sign.add(goalSort);
+            }
+
             Matcher matcher = PREDICATE_PATTERN.matcher(toParse);
             if (matcher.matches()) {
                 String termSet = matcher.group(3);
                 int arity = 0;
+
+                ArrayList<Sort> termsSort = new ArrayList<>();
+
                 if (termSet != null) {
                     String[] termList = termSet.replace("(", "").replace(")", "").split(",");
                     arity = termList.length;
@@ -1569,16 +1584,21 @@ public class Agent {
                     for (String term : termList) {
                         term = term.trim();
                         if (term.matches("^[a-z].*")) {
+                            termsSort.add(Sort.THING);
                             if (!sign.containsConstant(term)) {
                                 sign.add(new Constant(term));
                             }
+                        } else if (term.matches("^G[0-9]*$")) {
+                            termsSort.add(goalSort);
+                        } else {
+                            termsSort.add(Sort.THING);
                         }
                     }
                 }
 
                 String predicate = matcher.group(2).replace(termSet, "").trim();
                 if (!sign.containsPredicate(predicate)) {
-                    sign.add(new Predicate(predicate, arity));
+                    sign.add(new Predicate(predicate, termsSort));
                 }
 
                 FolFormula formula = parser.parseFormula(matcher.group(2));

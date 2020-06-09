@@ -1,18 +1,3 @@
-Thing = {man_32, bed, arm, me, p2, p6}
-
-type(takeHospital(Goals,Thing))
-type(go(Goals,Thing,Thing))
-type(sendShelter(Goals,Thing))
-type(available(Thing,Thing))
-type(newSupply(Thing))
-type(hasFractBone(Thing))
-type(fractBoneIs(Thing,Thing))
-type(injuredSevere(Thing))
-type(openFracture(Thing))
-type(askedForHelp(Thing,Thing))
-type(supportWeight(Thing))
-type(beOperative(Thing))
-
 => beOperative(me)
 => hasFractBone(man_32)
 => fractBoneIs(man_32, arm)

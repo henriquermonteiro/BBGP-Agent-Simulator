@@ -61,35 +61,35 @@ public class AspicFolParser extends AspicParser<FolFormula> {
         // 0 means sorts declaration
         // 1 means type declaration, i.e. functor/predicate declaration
         // 2 means formula section
-        int section = 0;
+//        int section = 0;
         // Read formulas and separate them with "\n" (ascii code 10)
-        try {
-            for (int c = reader.read(); c != -1; c = reader.read()) {
-                if (c == 10) {
-                    s = s.trim();
-                    if (!s.equals("")) {
-                        if (s.startsWith("type")) {
-                            section = 1;
-                        } else if (section == 1) {
-                            section = 2; //A type declaration section has been parsed previously, 
-                        }
-                        //therefore only the formula section remains.
-                        if (section == 2) {
-                            break;
-                        } else if (section == 1) {
-                            folParser.parseTypeDeclaration(s, folParser.getSignature());
-                        } else {
-                            folParser.parseSortDeclaration(s, folParser.getSignature());
-                        }
-                    }
-                    s = "";
-                } else {
-                    s += (char) c;
-                }
-            }
-        } catch (IOException | ParserException e) {
-            throw new ParserException(e);
-        }
+//        try {
+//            for (int c = reader.read(); c != -1; c = reader.read()) {
+//                if (c == 10) {
+//                    s = s.trim();
+//                    if (!s.equals("")) {
+//                        if (s.startsWith("type")) {
+//                            section = 1;
+//                        } else if (section == 1) {
+//                            section = 2; //A type declaration section has been parsed previously, 
+//                        }
+//                        //therefore only the formula section remains.
+//                        if (section == 2) {
+//                            break;
+//                        } else if (section == 1) {
+//                            folParser.parseTypeDeclaration(s, folParser.getSignature());
+//                        } else {
+//                            folParser.parseSortDeclaration(s, folParser.getSignature());
+//                        }
+//                    }
+//                    s = "";
+//                } else {
+//                    s += (char) c;
+//                }
+//            }
+//        } catch (IOException | ParserException e) {
+//            throw new ParserException(e);
+//        }
 
         // ASpicParser Code
         final Pattern ORDER = Pattern.compile(".*<.*");
