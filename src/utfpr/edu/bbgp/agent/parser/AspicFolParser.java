@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package utfpr.edu.bbgp.agent.parser;
 
 import java.io.BufferedReader;
@@ -36,7 +31,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
 
     private final FolParser folParser;
     private final RuleFormulaGenerator<FolFormula> rfGen;
-    
+
     private final String symbolStrict = "->";
     private final String symbolDefeasible = "=>";
     private final String symbolComma = ",";
@@ -54,76 +49,46 @@ public class AspicFolParser extends AspicParser<FolFormula> {
 
     @Override
     public AspicArgumentationTheory<FolFormula> parseBeliefBase(Reader reader) throws IOException, ParserException {
-        // FolParser code
-
-        String s = "";
-        // for keeping track of the section of the file:
-        // 0 means sorts declaration
-        // 1 means type declaration, i.e. functor/predicate declaration
-        // 2 means formula section
-//        int section = 0;
-        // Read formulas and separate them with "\n" (ascii code 10)
-//        try {
-//            for (int c = reader.read(); c != -1; c = reader.read()) {
-//                if (c == 10) {
-//                    s = s.trim();
-//                    if (!s.equals("")) {
-//                        if (s.startsWith("type")) {
-//                            section = 1;
-//                        } else if (section == 1) {
-//                            section = 2; //A type declaration section has been parsed previously, 
-//                        }
-//                        //therefore only the formula section remains.
-//                        if (section == 2) {
-//                            break;
-//                        } else if (section == 1) {
-//                            folParser.parseTypeDeclaration(s, folParser.getSignature());
-//                        } else {
-//                            folParser.parseSortDeclaration(s, folParser.getSignature());
-//                        }
-//                    }
-//                    s = "";
-//                } else {
-//                    s += (char) c;
-//                }
-//            }
-//        } catch (IOException | ParserException e) {
-//            throw new ParserException(e);
-//        }
-
         // ASpicParser Code
-        final Pattern ORDER = Pattern.compile(".*<.*");
+        final Pattern ORDER = Pattern.compile(".*<.*(\\s*#.*)?");
         final Pattern PLANS = Pattern.compile("(.+):-([^\\$]+)(\\$(.+))?");
-        final Pattern PLAN_CONTEXT = Pattern.compile("(((!\\s*)*)?([A-Za-z0-9]+(\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\))))|(res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
-        final Pattern PLAN_POSTCOND = Pattern.compile("((\\+|\\-)\\s*([A-Za-z0-9]+(\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\))))|(\\+|\\-)\\s*(res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
-        final Pattern RESOURCES = Pattern.compile("\\s*res\\s*:\\s*([A-Za-z0-9]+,[0-9]+(.[0-9]+)?)\\s*");
+        final Pattern PLAN_BEL_CONTEXT = Pattern.compile("(((!\\s*)*)?([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\)))?))");
+        final Pattern PLAN_RES_CONTEXT = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
+        final Pattern PLAN_BEL_POSTCOND = Pattern.compile("((\\+|\\-)\\s*([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\)))?))");
+        final Pattern PLAN_RES_POSTCOND = Pattern.compile("(\\+|\\-)\\s*(res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
+        final Pattern RESOURCES = Pattern.compile("\\s*res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?)\\s*(\\s*#.*)?");
 
-//        AspicArgumentationTheory<FolFormula> ass = new AspicArgumentationTheory<>(rfGen);
         AspicArgumentationTheoryFol as = new AspicArgumentationTheoryFol(rfGen);
 
         BufferedReader br = new BufferedReader(reader);
-        String line = s; // Feed the first line
-        Matcher m, m2;
+        String line;
+        Matcher m, m2, m_res;
         while (true) {
+            line = br.readLine();
+            if (line == null) {
+                break;
+            }
+            
             m = PLANS.matcher(line);
             m2 = RESOURCES.matcher(line);
             if (ORDER.matcher(line).matches()) {
-//                ass.setOrder(parseSimpleOrder(line));
-                as.setOrder(parseSimpleOrder(line));
+                as.setOrder(parseSimpleOrder(line.split("#")[0]));
             } else if (m.matches()) {
-//                FolFormula goalFormula = (FolFormula) folParser.parseFormula(m.group(1));
                 FolFormula goalFormula = Agent.parseFolFormulaSafe(m.group(1), folParser.getSignature());
 
                 String context = m.group(2);
+                String newContext = context;
                 String postConditions = m.group(4);
+                postConditions = postConditions.split("#")[0].trim();
 
-                m = PLAN_CONTEXT.matcher(context);
+                m_res = PLAN_RES_CONTEXT.matcher(context);
 
                 HashSet<FolFormula> beliefContext = new HashSet<>();
                 HashMap<String, Double> resourceContext = new HashMap<>();
 
-                while (m.find()) {
-                    String element = context.substring(m.start(), m.end());
+                while (m_res.find()) {
+                    String element = context.substring(m_res.start(), m_res.end());
+                    newContext = newContext.replaceFirst(element, "");
 
                     String[] split = element.split(":");
                     if (split.length == 2) {
@@ -132,22 +97,32 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                         String resource = split[0].trim();
                         Double value = Double.parseDouble(split[1].trim());
 
+                        if (element.startsWith("!")) {
+                            value *= -1;
+                        }
+
                         resourceContext.put(resource, value);
-                    } else {
-//                        FolFormula belief = (FolFormula) folParser.parseFormula(element);
-                        FolFormula belief = Agent.parseFolFormulaSafe(element, folParser.getSignature());
-                        beliefContext.add(belief);
                     }
+                }
+                
+                m = PLAN_BEL_CONTEXT.matcher(newContext);
+
+                while (m.find()) {
+                    String element = newContext.substring(m.start(), m.end());
+
+                    FolFormula belief = Agent.parseFolFormulaSafe(element, folParser.getSignature());
+                    beliefContext.add(belief);
                 }
 
                 HashSet<PerceptionEntry> postConditionsSet = new HashSet<>();
 
                 if (postConditions != null) {
-                    m = PLAN_POSTCOND.matcher(postConditions);
-
-                    while (m.find()) {
-                        String element = postConditions.substring(m.start(), m.end());
-
+                    String newPostConditions = postConditions;
+                    m_res = PLAN_RES_POSTCOND.matcher(postConditions);
+                    while(m_res.find()){
+                        String element = postConditions.substring(m_res.start(), m_res.end());
+                        newPostConditions = newPostConditions.replaceFirst(element.replaceAll("\\+", "\\\\+").replaceAll("\\-", "\\\\-"), "");
+                        
                         char operation = element.charAt(0);
                         element = element.substring(1).trim();
 
@@ -159,17 +134,25 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                             Double value = Double.parseDouble(split[1].trim());
 
                             postConditionsSet.add(new PerceptionEntry(resource, value, operation));
-                        } else {
-//                            FolFormula belief = (FolFormula) folParser.parseFormula(element);
-                            FolFormula belief = Agent.parseFolFormulaSafe(element, folParser.getSignature());
-                            postConditionsSet.add(new PerceptionEntry(belief, operation));
                         }
+                    }
+                    
+                    m = PLAN_BEL_POSTCOND.matcher(newPostConditions);
+
+                    while (m.find()) {
+                        String element = newPostConditions.substring(m.start(), m.end());
+
+                        char operation = element.charAt(0);
+                        element = element.substring(1).trim();
+                        
+                        FolFormula belief = Agent.parseFolFormulaSafe(element, folParser.getSignature());
+                        postConditionsSet.add(new PerceptionEntry(belief, operation));
                     }
                 }
 
                 as.addPlanTemplate(goalFormula, beliefContext, resourceContext, postConditionsSet);
             } else if (m2.matches()) {
-                String element = line.trim();
+                String element = line.split("#")[0].trim();
 
                 String[] split = element.split(":");
                 if (split.length == 2) {
@@ -183,13 +166,8 @@ public class AspicFolParser extends AspicParser<FolFormula> {
             } else {
                 Formula rule = parseFormula(line);
                 if (rule != null) {
-//                    ass.addRule((InferenceRule<FolFormula>) rule);
                     as.addRule((InferenceRule<FolFormula>) rule);
                 }
-            }
-            line = br.readLine(); // Moved to the end of the loop
-            if (line == null) {
-                break;
             }
         }
 
@@ -200,7 +178,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
     public Formula parseFormula(Reader reader) throws IOException, ParserException {
         final Pattern RULE = Pattern.compile("(.*)(" + symbolStrict + "|" + symbolDefeasible + ")(.+)"),
                 RULE_ID = Pattern.compile("^\\s*([A-Za-z0-9]+)\\s*:(.*)"),
-                RULE_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+\\(([A-Za-z0-9]|\\s|,)+)\\)\\s*"), // new pattern
+                RULE_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+(\\w*)*(\\(([A-Za-z0-9]|\\s|,)+\\))?)\\s*"), // new pattern
                 EMPTY = Pattern.compile("^\\s*$");
 
         BufferedReader br = new BufferedReader(reader);
@@ -214,7 +192,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                     = m.group(2).equals(symbolDefeasible)
                     ? new DefeasibleInferenceRule<>()
                     : new StrictInferenceRule<>();
-            rule.setConclusion(Agent.parseFolFormulaSafe(m.group(3), folParser.getSignature()));
+            rule.setConclusion(Agent.parseFolFormulaSafe(m.group(3).split("#")[0], folParser.getSignature()));
             String str = m.group(1);
             m = RULE_ID.matcher(str);
             if (m.matches()) {

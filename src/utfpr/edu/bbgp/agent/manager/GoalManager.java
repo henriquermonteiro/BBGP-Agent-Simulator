@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package utfpr.edu.bbgp.agent.manager;
 
 import java.util.HashMap;
@@ -24,11 +19,13 @@ public class GoalManager{
     private final Agent agent;
     private final HashMap<Predicate, SleepingGoal> sleepingGoals;
     private final HashSet<Goal> goals;
+    private final HashMap<String, Goal> idToGoalMap;
 
     public GoalManager(Agent agent) {
         this.agent = agent;
         sleepingGoals = new HashMap<>();
         goals = new HashSet<>();
+        idToGoalMap = new HashMap<>();
     }
     
     public boolean addSleepingGoal(SleepingGoal sGoal){
@@ -41,6 +38,10 @@ public class GoalManager{
     
     public boolean addGoal(Goal goal){
         return goals.add(goal);
+    }
+    
+    public Goal getGoalbyId(String id){
+        return idToGoalMap.get(id);
     }
     
     public Goal createGoal(Predicate pred, FolAtom fullPredicate){
@@ -71,14 +72,11 @@ public class GoalManager{
 
             if(isNewGoal){
                 Constant goalTerm = agent.getNextGoalConstant();
+                
+                idToGoalMap.put(goalTerm.get(), g);
 
                 g.setGoalTerm(goalTerm);
             }else{
-    //            for(Goal goal : goals){
-    //                if(g.equals(goal)){
-    //                    return goal;
-    //                }
-    //            }
                 g = null;
             }
         }

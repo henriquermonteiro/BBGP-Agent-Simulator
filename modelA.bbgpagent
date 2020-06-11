@@ -5,26 +5,26 @@
 => openFracture(man_32)
 => !available(bed,Y)
 => newSupply(bed)
-=> supportWeight(man_32)
+=> supportWeight(man_32) 
 
 newSupply(X) -> available(X, Y)
 hasFractBone(X) => injuredSevere(X)
 fractBoneIs(X, arm) => !injuredSevere(X)
-openFracture(X) -> injuredSevere(X)
+openFracture(X) -> injuredSevere(X) 
 
 act1 : injuredSevere(X) -> takeHospital(G, X)
 act2 : !injuredSevere(X) -> sendShelter(G, X)
-act3 : askedForHelp(X, Y) => go(G, X, Y)
+act3 : askedForHelp(X, Y) => go(G, X, Y) 
 
 !supportWeight(X) -> !takeHospital(G, X)
 !available(bed, X) -> !takeHospital(G, X)
 rescued(X) -> !takeHospital(G, X)
-rescued(X) -> !sendShelter(G, X)
+rescued(X) -> !sendShelter(G, X) 
 
 
 act3 < act2 < act1
 
-res : battery,80.0
+res : battery,80.0 
 res : oil , 70.0
 
 go(G,X,Y) :- beOperative(me), res : battery,50.0 $ -askedForHelp(X, Y), -res:battery,50.0

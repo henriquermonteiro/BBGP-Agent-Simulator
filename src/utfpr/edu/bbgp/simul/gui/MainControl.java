@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package utfpr.edu.bbgp.simul.gui;
 
 import utfpr.edu.bbgp.agent.PerceptionEntry;
@@ -19,14 +14,17 @@ import java.awt.event.FocusAdapter;
 import java.awt.event.FocusEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.Arrays;
+import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.DefaultListModel;
+import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -38,16 +36,25 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
+import javax.swing.JTree;
 import javax.swing.ListModel;
 import javax.swing.ListSelectionModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeCellRenderer;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
+import javax.swing.tree.TreeSelectionModel;
 import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.GoalMemory;
+import utfpr.edu.bbgp.agent.GoalStage;
 import utfpr.edu.bbgp.agent.parser.PerceptionsParser;
 
 /**
@@ -66,11 +73,16 @@ public class MainControl extends JFrame {
 
     private JTextPane intentions;
 
-    private JTextField scriptInput;
-    private JButton submitScript;
     private JList<PerceptionEntry> scriptQueue;
     private JList<GoalMemory> goalList;
     private ArgumentionFramework cluster;
+    private JTree tree;
+    private DefaultMutableTreeNode treeRoot;
+    private JTextArea explanationArea;
+    
+    private JSplitPane splitPanelKB;
+    private JSplitPane splitPanelGM;
+    private JSplitPane splitPanelExplaination;
 
     private JTextPane output;
 
@@ -173,61 +185,18 @@ public class MainControl extends JFrame {
         output = new JTextPane();
         output.setPreferredSize(new Dimension(400, 100));
 
-        JSplitPane splitPanelKB = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        splitPanelKB.setLeftComponent(new JScrollPane(scriptQueue));
-        splitPanelKB.setRightComponent(new JScrollPane(beliefBase));
+        splitPanelKB = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
+        splitPanelKB.setLeftComponent(new JScrollPane(scriptQueue){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
+        splitPanelKB.setRightComponent(new JScrollPane(beliefBase){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
 
         JPanel kbInspectorPanel = new JPanel(new BorderLayout());
 
         kbInspectorPanel.add(toolP, BorderLayout.PAGE_START);
         kbInspectorPanel.add(splitPanelKB, BorderLayout.CENTER);
-//
-//        /*
-//            [ => hasFractBone(man_32)] accepted
-//            [ => fractBoneIs(man_32,arm)] accepted
-//            [ => openFracture(man_32)] accepted
-//        
-//            [hasFractBone(man_32) => injuredSevere(man_32) [ => hasFractBone(man_32)]] accepted
-//            [openFracture(man_32) -> injuredSevere(man_32) [ => openFracture(man_32)]] accepted
-//            [fractBoneIs(man_32,arm) => !injuredSevere(man_32) [ => fractBoneIs(man_32,arm)]] rejected
-//        
-//            [injuredSevere(man_32) -> takeHospital(gHolder,man_32) [openFracture(man_32) -> injuredSevere(man_32) [ => openFracture(man_32)]]] accepted
-//            [injuredSevere(man_32) -> takeHospital(gHolder,man_32) [hasFractBone(man_32) => injuredSevere(man_32) [ => hasFractBone(man_32)]]] accepted
-//            [!injuredSevere(man_32) -> sendShelter(gHolder,man_32) [fractBoneIs(man_32,arm) => !injuredSevere(man_32) [ => fractBoneIs(man_32,arm)]]] rejected
-//         */
-//        Atom bel1 = new Atom("B1", false); // fractBoneIs(man_32,arm)
-//        Atom bel2 = new Atom("B2", false); // hasFractBone(man_32)
-//        Atom bel3 = new Atom("B3", false); // openFracture(man_32)
-//        Atom bel4 = new Atom("B4", false); // injuredSevere(man_32)
-//        Atom bel4_2 = new Atom("B4", false); // injuredSevere(man_32)
-//        Atom bel5 = new Atom("B5", false); // takeHospital(gHolder,man_32)
-//        Atom bel5_2 = new Atom("B5", false); // takeHospital(gHolder,man_32)
-//        Atom bel6 = new Atom("B6", false); // sendShelter(gHolder,man_32)
-//        Atom bel7 = new Atom("B7", false); // !injuredSevere(man_32)
-//
-//        Argument arg1 = new Argument(bel2, "Ast1", "", false, (Argument[]) null); // hasFractBone(man_32)
-//        Argument arg2 = new Argument(bel1, "Ast2", "", false, (Argument[]) null); // fractBoneIs(man_32,arm)
-//        Argument arg3 = new Argument(bel3, "Ast3", "", false, (Argument[]) null); // openFracture(man_32)
-//
-//        Argument arg4 = new Argument(bel4, "Ast4", "r_st^2", false, arg1); // hasFractBone(man_32) => injuredSevere(man_32)
-//        Argument arg5 = new Argument(bel4_2, "Ast5", "r_st^4", true, arg3); // openFracture(man_32) -> injuredSevere(man_32)
-//        Argument arg6 = new Argument(bel7, "Ast6", "r_st^3", false, arg2); // fractBoneIs(man_32,arm) => !injuredSevere(man_32)
-//
-//        Argument arg7 = new Argument(bel5, "Aac1", "r_ac^1", true, arg4); // injuredSevere(man_32) -> takeHospital(gHolder,man_32)
-//        Argument arg8 = new Argument(bel5_2, "Aac2", "r_ac^1", true, arg5); // injuredSevere(man_32) -> takeHospital(gHolder,man_32)
-//        Argument arg9 = new Argument(bel6, "Aac3", "r_ac^2", true, arg6); // !injuredSevere(man_32) -> sendShelter(gHolder,man_32)
 
         cluster = new ArgumentionFramework();
         cluster.setEmptyMessage("No relevant arguments.");
         cluster.setScaling(1.5);
-//        cluster.addArgument(arg7);
-//        cluster.addArgument(arg9);
-//        cluster.addArgument(arg8);
-//
-//        cluster.addAttack(arg4, arg6, true);
-//        cluster.addAttack(arg5, arg6, true);
-//        cluster.addAttack(arg9, arg7, true);
-//        cluster.addAttack(arg8, arg9, true);
 
         GridBagLayout gBLayout = new GridBagLayout();
         GridBagConstraints gridBagConstraints = new GridBagConstraints();
@@ -243,6 +212,7 @@ public class MainControl extends JFrame {
         JPanel afPanel = new JPanel(new BorderLayout(0, 5));
         afPanel.add(cluster.createDiagramColorLegend(FlowLayout.CENTER, 5, 5), BorderLayout.NORTH);
         afPanel.add(new JScrollPane(cPanel), BorderLayout.CENTER);
+        afPanel.setMinimumSize(new Dimension(0, 0));
 
         goalList = new JList<>(new DefaultListModel<>());
         goalList.setCellRenderer(new GoalMemoryListCellRenderer());
@@ -262,14 +232,45 @@ public class MainControl extends JFrame {
 
         goalList.setSelectedIndex(0);
 
-        JSplitPane splitPanelGM = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
+        splitPanelGM = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
-        splitPanelGM.setLeftComponent(new JScrollPane(goalList));
+        splitPanelGM.setLeftComponent(new JScrollPane(goalList){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
         splitPanelGM.setRightComponent(afPanel);
+
+        treeRoot = new DefaultMutableTreeNode("root");
+        tree = new JTree(treeRoot);
+        tree.setRootVisible(false);
+        tree.setShowsRootHandles(true);
+        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        tree.addTreeSelectionListener((arg0) -> {
+            if(arg0.getNewLeadSelectionPath() == null){
+                return;
+            }
+            
+            TreeExplanationEntry entry = (TreeExplanationEntry) ((DefaultMutableTreeNode) arg0.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
+            
+            explanationArea.setText(entry.getExplanation());
+        });
+        
+        DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
+        Icon noIcon = null;
+        renderer.setLeafIcon(noIcon);
+        renderer.setClosedIcon(noIcon);
+        renderer.setOpenIcon(noIcon);
+        tree.setCellRenderer(renderer);
+
+        explanationArea = new JTextArea();
+        explanationArea.setLineWrap(true);
+
+        splitPanelExplaination = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
+
+        splitPanelExplaination.setLeftComponent(new JScrollPane(tree){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
+        splitPanelExplaination.setRightComponent(new JScrollPane(explanationArea){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
 
         JTabbedPane tabPane = new JTabbedPane(JTabbedPane.TOP);
         tabPane.addTab("Belief inspector", kbInspectorPanel);
         tabPane.addTab("Goal memory inspector", splitPanelGM);
+        tabPane.addTab("Pursuable goal explaination", splitPanelExplaination);
 
         JPanel innerP2 = new JPanel(new BorderLayout(6, 6));
         innerP2.add(toolP, BorderLayout.PAGE_START);
@@ -281,6 +282,7 @@ public class MainControl extends JFrame {
         openAgent.addActionListener((arg0) -> {
             JFileChooser chooser = new JFileChooser();
             chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            chooser.setCurrentDirectory(new File("." + File.separator));
             chooser.setMultiSelectionEnabled(false);
             chooser.setFileFilter(new FileNameExtensionFilter("*.bbgpagent", "bbgpagent"));
 
@@ -293,6 +295,7 @@ public class MainControl extends JFrame {
                     }
 
                     aThread = new AgentThread(AgentGenerator.getAgentFromFolBase(new FileReader(filePath)), this);
+                    ((DefaultListModel) goalList.getModel()).clear();
                     updateInfo(aThread.getAgent());
                     play_pause.setEnabled(true);
 
@@ -312,6 +315,7 @@ public class MainControl extends JFrame {
 
             JFileChooser chooser = new JFileChooser();
             chooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+            chooser.setCurrentDirectory(new File("." + File.separator));
             chooser.setMultiSelectionEnabled(false);
             chooser.setFileFilter(new FileNameExtensionFilter("*.perceptions", "perceptions"));
 
@@ -327,7 +331,13 @@ public class MainControl extends JFrame {
                     }
 
                     updateInfo(aThread.getAgent());
-
+                    
+                    int pos = splitPanelKB.getInsets().left + scriptQueue.getPreferredSize().width;
+                    Insets scrollInsets = ((JScrollPane)splitPanelKB.getLeftComponent()).getInsets();
+                    pos += scrollInsets.left + scrollInsets.right;
+                    JScrollBar vBar = ((JScrollPane)splitPanelKB.getLeftComponent()).getVerticalScrollBar();
+                    pos += (vBar.isVisible() ? vBar.getWidth() : 0);
+                    splitPanelKB.setDividerLocation(pos);
                 } catch (IOException ex) {
                     Logger.getLogger(MainControl.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -352,7 +362,7 @@ public class MainControl extends JFrame {
         if (model instanceof PerceptionQueueListModel) {
             return !((PerceptionQueueListModel) model).active.isEmpty();
         }
-        
+
         return false;
     }
 
@@ -425,13 +435,34 @@ public class MainControl extends JFrame {
 
         String gMemorytToString = "";
 
+        ArrayList<GoalMemory> pursuableEntries = new ArrayList<>();
+        ArrayList<Long> pursuableEntriesCycles = new ArrayList<>();
         DefaultListModel model = ((DefaultListModel) goalList.getModel());
+        boolean changed = false;
         for (GoalMemory m : agent.getGoalMemory()) {
             gMemorytToString += m.toString() + "\n\n";
 
             if (!model.contains(m)) {
                 model.add(model.size(), m);
+                changed = true;
             }
+
+            if (m.getGoalStage() == GoalStage.Choosen) {
+                pursuableEntries.add(m);
+                if (!pursuableEntriesCycles.contains(m.getCycle())) {
+                    pursuableEntriesCycles.add(m.getCycle());
+            
+                }
+            }
+        }
+        
+        if(changed){
+            int pos = splitPanelGM.getInsets().left + goalList.getPreferredSize().width;
+            Insets scrollInsets = ((JScrollPane)splitPanelGM.getLeftComponent()).getInsets();
+            pos += scrollInsets.left + scrollInsets.right;
+            JScrollBar vBar = ((JScrollPane)splitPanelGM.getLeftComponent()).getVerticalScrollBar();
+            pos += (vBar.isVisible() ? vBar.getWidth() : 0);
+            splitPanelGM.setDividerLocation(pos);
         }
 
         if (goalList.getSelectedIndex() < 0) {
@@ -439,6 +470,44 @@ public class MainControl extends JFrame {
         }
 
         output.setText(gMemorytToString);
+
+        DefaultTreeModel treeModel = (DefaultTreeModel) tree.getModel();
+        if(treeRoot.getChildCount() != pursuableEntriesCycles.size()){
+            Long[] cycleList = pursuableEntriesCycles.toArray(new Long[]{});
+            Arrays.sort(cycleList);
+            
+            treeRoot.removeAllChildren();
+            
+            for(Long cycle : cycleList){
+                DefaultMutableTreeNode cycleNode = null;
+                for(GoalMemory gM : pursuableEntries){
+                    if(Objects.equals(gM.getCycle(), cycle)){
+                        if(cycleNode == null){
+                            cycleNode = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, false), true);
+                        }
+                        
+                        cycleNode.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, true), false));
+                    }
+                }
+                
+                treeRoot.add(cycleNode);
+            }
+            
+            treeModel.reload();
+            
+            treeRoot.children().asIterator().forEachRemaining((arg0) -> {
+                DefaultMutableTreeNode el = (DefaultMutableTreeNode) arg0;
+                TreePath path = new TreePath(((DefaultMutableTreeNode)el.getChildAt(0)).getPath());
+                tree.makeVisible(path);
+            });
+            
+            int pos = splitPanelExplaination.getInsets().left + tree.getPreferredSize().width;
+            Insets scrollInsets = ((JScrollPane)splitPanelExplaination.getLeftComponent()).getInsets();
+            pos += scrollInsets.left + scrollInsets.right;
+            JScrollBar vBar = ((JScrollPane)splitPanelExplaination.getLeftComponent()).getVerticalScrollBar();
+            pos += (vBar.isVisible() ? vBar.getWidth() : 0);
+            splitPanelExplaination.setDividerLocation(pos);
+        }
     }
 
     /**
@@ -455,7 +524,7 @@ public class MainControl extends JFrame {
         }).forEach((arg0) -> {
             list.add(arg0);
         });
-        
+
         return list;
     }
 }

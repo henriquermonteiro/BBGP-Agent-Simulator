@@ -1,0 +1,34 @@
+=> workshop_at(p1,p1)
+=> at(p3,p3)
+=> defective
+=> solid_dirt(p5,p5)
+=> liquid_dirt(p1,p1)
+res : battery,100
+
+
+act1 : head_to(X,Y) -> go(G,X,Y)
+act2 : !res : battery,10 -> recharge(G)
+act3 : defective -> be(G,fixed)
+act4 : solid_dirt(X,Y) -> pickup(G,X,Y)
+act5 : liquid_dirt(X,Y) -> mop(G,X,Y)
+
+defective -> !pickup(G,X,Y)
+defective -> !mop(G,X,Y)
+
+act3 > act2 > act1 > act5> act4
+
+go(G,X,Y) :- !at(X,Y), at(X2,Y2), res : battery,5 $ - res : battery,5, - at(X2,Y2), + at(X,Y)
+
+recharge(G) :- !at(X,Y), workshop_at(X,Y), res : battery,5 $ + head_to(X,Y)
+recharge(G) :- !at(X,Y), workshop_at(X,Y), !res : battery,5 $ + request_maintenance
+recharge(G) :- at(X,Y), workshop_at(X,Y) $ - res : battery,100, + res : battery,100
+
+be(G,fixed) :- !at(X,Y), workshop_at(X,Y), res : battery,5 $ + head_to(X,Y)
+be(G,fixed) :- !at(X,Y), workshop_at(X,Y), !res : battery,5 $ + request_maintenance
+be(G,fixed) :- at(X,Y), workshop_at(X,Y), has(spare_part) $ - res : battery,100, + res : battery,100, - defective
+
+pickup(G,X,Y) :- !at(X,Y), res : battery,18 $ head_to(X,Y)
+pickup(G,X,Y) :- at(X,Y), res : battery, 13 $ - solid_dirt(X,Y), - res : battery, 8
+
+mop(G,X,Y) :- !at(X,Y), res : battery,20 $ head_to(X,Y)
+mop(G,X,Y) :- at(X,Y), res : battery,15 $ - liquid_dirt(X,Y), - res : battery,10

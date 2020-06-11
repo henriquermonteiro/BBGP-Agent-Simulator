@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package utfpr.edu.bbgp.simul.utils;
 
 import java.io.FileNotFoundException;
@@ -16,9 +11,6 @@ import net.sf.tweety.arg.aspic.ruleformulagenerator.FolFormulaGenerator;
 import net.sf.tweety.arg.aspic.syntax.AspicArgument;
 import net.sf.tweety.arg.aspic.syntax.AspicArgumentationTheory;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
-import net.sf.tweety.commons.util.Triple;
-import net.sf.tweety.logics.commons.syntax.Constant;
-import net.sf.tweety.logics.commons.syntax.Sort;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.parser.FolParser;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
@@ -26,14 +18,11 @@ import net.sf.tweety.logics.fol.syntax.FolFormula;
 import net.sf.tweety.logics.fol.syntax.FolSignature;
 import net.sf.tweety.logics.fol.syntax.Negation;
 import utfpr.edu.bbgp.agent.Agent;
-import utfpr.edu.bbgp.agent.GoalMemory;
 import utfpr.edu.bbgp.agent.PerceptionEntry;
 import utfpr.edu.bbgp.agent.Plan;
-import utfpr.edu.bbgp.agent.PostCondition;
 import utfpr.edu.bbgp.agent.SleepingGoal;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
 import utfpr.edu.bbgp.agent.parser.AspicFolParser;
-import utfpr.edu.bbgp.simul.utils.Quadruplet;
 
 /**
  *
@@ -55,24 +44,6 @@ public class AgentGenerator {
         AspicFolParser aspicParser = new AspicFolParser(new FolParser(), new FolFormulaGenerator());
         
         FolSignature signature = aspicParser.getFolParser().getSignature();
-        Sort goalSort = signature.getSort(Agent.GOAL_SORT_TEXT);
-        if(goalSort == null){
-            goalSort = new Sort(Agent.GOAL_SORT_TEXT);
-            signature.add(goalSort);
-        }
-        Sort typeSort = signature.getSort(Agent.TYPE_SORT_TEXT);
-        if(typeSort == null){
-            typeSort = new Sort(Agent.TYPE_SORT_TEXT);
-            signature.add(typeSort);
-        }
-        signature.add(new Constant("t", typeSort));
-        signature.add(new Constant("r", typeSort));
-        signature.add(new Constant("s", typeSort));
-        signature.add(new Constant("tr", typeSort));
-        signature.add(new Constant("ts", typeSort));
-        signature.add(new Constant("rs", typeSort));
-        signature.add(new Constant("trs", typeSort));
-        signature.add(new Constant("none", typeSort));
 
         AspicArgumentationTheory<FolFormula> theory = aspicParser.parseBeliefBase(agentBeliefAndRuleSet);
 
@@ -106,11 +77,6 @@ public class AgentGenerator {
                 }
             }
         }
-        signature.add(new Constant(Agent.GOAL_PLACE_HOLDER_CONST_STR, goalSort));
-        //Type = {t, r, s, tr, ts, rs, trs, none}
-//        signature.getSort(Agent.GOAL_SORT_TEXT).add(new Constant(Agent.GOAL_PLACE_HOLDER_CONST_STR, goalSort));
-        
-        
 
         Agent a = new Agent(signature, beliefs, stdRules, actRules, evlRules);
 

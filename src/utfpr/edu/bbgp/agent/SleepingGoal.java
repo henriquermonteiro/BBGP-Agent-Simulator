@@ -1,8 +1,3 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
 package utfpr.edu.bbgp.agent;
 
 import java.util.Objects;
@@ -22,18 +17,15 @@ public class SleepingGoal {
         this.preference = 0.0;
         
         int goalTerm = 0;
-        int otherTerm = 0;
         
         for(Term t : goalPredicate.getTerms()){
             if(t.getSort().getName().equals(Agent.GOAL_SORT_TEXT)){
                 goalTerm++;
-            }else{
-                otherTerm++;
             }
         }
         
-        if(goalTerm != 1 || otherTerm < 1){
-            throw new IllegalArgumentException("The predicate used for goals must have one and only one \"Goals\" Term and some (one or more) other Terms.");
+        if(goalTerm != 1){
+            throw new IllegalArgumentException("The predicate used for goals must have one and only one \"Goals\" Term.");
         }
         
         this.goalPredicate = goalPredicate;
