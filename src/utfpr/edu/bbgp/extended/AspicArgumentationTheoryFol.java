@@ -36,7 +36,7 @@ import utfpr.edu.bbgp.simul.utils.Quadruplet;
 public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFormula> {
 
     private Agent currentAgent;
-    private ArrayList< Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>>> planTemplates = new ArrayList<>();
+    private ArrayList< Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, ArrayList<PerceptionEntry>>> planTemplates = new ArrayList<>();
 
     public AspicArgumentationTheoryFol(RuleFormulaGenerator<FolFormula> rfgen) {
         super(rfgen);
@@ -233,11 +233,11 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         return args;
     }
 
-    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, HashSet<PerceptionEntry> postConditions) {
+    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, ArrayList<PerceptionEntry> postConditions) {
         planTemplates.add(new Quadruplet<>(goalFormula, beliefContext, resourceContext, postConditions));
     }
 
-    public List<Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>>> getPlanTemplates() {
+    public List<Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, ArrayList<PerceptionEntry>>> getPlanTemplates() {
         return planTemplates;
     }
 

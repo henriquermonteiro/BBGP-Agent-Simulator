@@ -4,6 +4,7 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -104,7 +105,7 @@ public class AgentGenerator {
         if(theory instanceof AspicArgumentationTheoryFol){
             AspicArgumentationTheoryFol theoryFol = (AspicArgumentationTheoryFol) theory;
             
-            for(Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>> t : theoryFol.getPlanTemplates()){
+            for(Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, ArrayList<PerceptionEntry>> t : theoryFol.getPlanTemplates()){
                 if(formulaTosleepingGoalsMap.containsKey(t.getT())){
                     a.addPlanTemplate(new Plan(formulaTosleepingGoalsMap.get(t.getT()), null, t.getU(), t.getV(), t.getW()));
                 }

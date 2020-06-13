@@ -3,6 +3,7 @@ package utfpr.edu.bbgp.agent.parser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -114,7 +115,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                     beliefContext.add(belief);
                 }
 
-                HashSet<PerceptionEntry> postConditionsSet = new HashSet<>();
+                ArrayList<PerceptionEntry> postConditionsSet = new ArrayList<>();
 
                 if (postConditions != null) {
                     String newPostConditions = postConditions;

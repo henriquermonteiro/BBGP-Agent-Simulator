@@ -422,9 +422,9 @@ public class Agent {
             }
         }
 
-        Map<String, Double> resourceChanges = plan.getResourcePostConditionsSet();
-        for (String res : resourceChanges.keySet()) {
-            addResource(res, resourceChanges.get(res));
+        List<PerceptionEntry> resourceChanges = plan.getResourcePostConditionsSet();
+        for (PerceptionEntry res : resourceChanges) {
+            addResource(res.getResource(), res.getResourceAmount() * (res.getOperation() == '-' ? -1 : 1));
         }
 
         intention.getGoal().setStage(GoalStage.Completed);

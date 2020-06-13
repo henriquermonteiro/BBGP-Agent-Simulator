@@ -5,6 +5,7 @@
  */
 package utfpr.edu.bbgp.agent;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -24,16 +25,16 @@ public class Plan {
     private final Object actions;
     private final Set<FolFormula> beliefContext;
     private final HashSet<ResourceFolFormula> resourceContext;
-    private final Set<PerceptionEntry> postConditions;
+    private final List<PerceptionEntry> postConditions;
 
-    public Plan(SleepingGoal goal, Object actions, Set<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, Set<PerceptionEntry> postConditions) {
+    public Plan(SleepingGoal goal, Object actions, Set<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, List<PerceptionEntry> postConditions) {
         this.goal = goal;
         this.actions = actions;
         this.beliefContext = beliefContext;
         this.resourceContext = resourceContext;
 
         if (postConditions == null) {
-            this.postConditions = new HashSet<>();
+            this.postConditions = new ArrayList<>();
         } else {
             this.postConditions = postConditions;
         }
@@ -55,7 +56,7 @@ public class Plan {
         return resourceContext;
     }
 
-    public Set<PerceptionEntry> getPostConditions() {
+    public List<PerceptionEntry> getPostConditions() {
         return postConditions;
     }
 
@@ -112,15 +113,15 @@ public class Plan {
         return set;
     }
     
-    public HashMap<String, Double> getResourcePostConditionsSet(){
-        HashMap<String, Double> set = new HashMap<>();
+    public List<PerceptionEntry> getResourcePostConditionsSet(){
+        ArrayList<PerceptionEntry> list = new ArrayList<>();
         
         for(PerceptionEntry pC : postConditions){
             if(pC.isResourceType()){
-                set.put(pC.getResource(), pC.getResourceAmount() * (pC.getOperation() == PerceptionEntry.DELETION_OPERATION ? -1.0 : 1.0));
+                list.add(pC);
             }
         }
         
-        return set;
+        return list;
     }
 }
