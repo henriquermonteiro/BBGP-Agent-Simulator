@@ -25,6 +25,7 @@ import net.sf.tweety.logics.commons.syntax.Variable;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
 import net.sf.tweety.logics.fol.syntax.Negation;
+import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.PerceptionEntry;
 import utfpr.edu.bbgp.simul.utils.Quadruplet;
 
@@ -34,10 +35,16 @@ import utfpr.edu.bbgp.simul.utils.Quadruplet;
  */
 public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFormula> {
 
-    private ArrayList< Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>>> planTemplates = new ArrayList<>();
+    private Agent currentAgent;
+    private ArrayList< Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>>> planTemplates = new ArrayList<>();
 
     public AspicArgumentationTheoryFol(RuleFormulaGenerator<FolFormula> rfgen) {
         super(rfgen);
+    }
+
+    public AspicArgumentationTheoryFol setCurrentAgent(Agent currentAgent) {
+        this.currentAgent = currentAgent;
+        return this;
     }
 
     public static AspicArgumentationTheoryFol castTo(AspicArgumentationTheory<FolFormula> theory) {
@@ -79,10 +86,12 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         do {
             changed = false;
             for (InferenceRule<FolFormula> rule : this) {
-                
+
                 HashSet<Variable> variables = new HashSet<>(rule.getConclusion().getUnboundVariables());
                 for (FolFormula prem : rule.getPremise()) {
-                    variables.addAll(prem.getUnboundVariables());
+                    if (!(prem instanceof ResourceFolFormula)) {
+                        variables.addAll(prem.getUnboundVariables());
+                    }
                 }
 
                 Map<Sort, Set<Variable>> sorts_variables = new HashMap<>();
@@ -102,8 +111,10 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                     }
                     mappings.put(sorts_variables.get(s), sorts_terms.get(s));
                 }
-                
-                Set<Map<Variable, Term<?>>> mapping = new MapTools<Variable,Term<?>>().allMaps(mappings);
+
+                Set<Map<Variable, Term<?>>> mapping = new MapTools<Variable, Term<?>>().allMaps(mappings);
+
+                boolean onlyResourceFF = true;
 
                 for (Map<Variable, Term<?>> map : mapping) {
                     if (map.isEmpty()) {
@@ -118,6 +129,21 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                     ruleConclusion = (FolFormula) ruleConclusion.substitute(map);
 
                     for (FolFormula prem : rule.getPremise()) {
+                        if (prem instanceof ResourceFolFormula) {
+                            if (currentAgent != null) {
+                                ResourceFolFormula resFF = (ResourceFolFormula) prem;
+
+                                if (!currentAgent.getResources().isAvaliable(resFF)) {
+                                    continueWithNextSubstitution = true; // Próxima regra
+                                    break;
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        onlyResourceFF = false;
+
                         prem = (FolFormula) cloneFolFormula(prem).substitute(map);
 
                         argsForPrem.clear();
@@ -154,7 +180,7 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                     if (continueWithNextSubstitution) {
                         continue;
                     }
-                    if (rule.getPremise().isEmpty()) {
+                    if (rule.getPremise().isEmpty() || onlyResourceFF) {
                         InferenceRule<FolFormula> unifiedRule;
 
                         if (rule instanceof StrictInferenceRule) {
@@ -165,6 +191,10 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                         }
 
                         unifiedRule.setConclusion(ruleConclusion);
+                        
+                        if(onlyResourceFF){
+                            unifiedRule.addPremises(rule.getPremise());
+                        }
 
                         changed = args.add(new AspicArgument<>(unifiedRule)) || changed;
                         usedTerms.addAll(ruleConclusion.getTerms(Constant.class));
@@ -174,20 +204,24 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
 
                         if (rule instanceof StrictInferenceRule) {
                             unifiedRule = new StrictInferenceRuleWithId<>();
-                            if(rule instanceof StrictInferenceRuleWithId){
-                                ((StrictInferenceRuleWithId)unifiedRule).setRuleId(((StrictInferenceRuleWithId)rule).getRuleId());
+                            if (rule instanceof StrictInferenceRuleWithId) {
+                                ((StrictInferenceRuleWithId) unifiedRule).setRuleId(((StrictInferenceRuleWithId) rule).getRuleId());
                             }
 
                         } else {
                             unifiedRule = new DefeasibleInferenceRuleWithId<>();
-                            if(rule instanceof DefeasibleInferenceRuleWithId){
-                                ((DefeasibleInferenceRuleWithId)unifiedRule).setRuleId(((DefeasibleInferenceRuleWithId) rule).getRuleId());
+                            if (rule instanceof DefeasibleInferenceRuleWithId) {
+                                ((DefeasibleInferenceRuleWithId) unifiedRule).setRuleId(((DefeasibleInferenceRuleWithId) rule).getRuleId());
                             }
                         }
 
                         unifiedRule.setConclusion(ruleConclusion);
                         for (FolFormula prem : rule.getPremise()) {
-                            unifiedRule.addPremise((FolFormula) cloneFolFormula(prem).substitute(map));
+                            if (prem instanceof ResourceFolFormula) {
+                                unifiedRule.addPremise(prem.clone());
+                            } else {
+                                unifiedRule.addPremise((FolFormula) cloneFolFormula(prem).substitute(map));
+                            }
                         }
 
                         changed = args.add(new AspicArgument<>(unifiedRule, subargset)) || changed;
@@ -199,11 +233,11 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
         return args;
     }
 
-    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashMap<String, Double> resourceContext, HashSet<PerceptionEntry> postConditions) {
+    public void addPlanTemplate(FolFormula goalFormula, HashSet<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, HashSet<PerceptionEntry> postConditions) {
         planTemplates.add(new Quadruplet<>(goalFormula, beliefContext, resourceContext, postConditions));
     }
 
-    public List<Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>>> getPlanTemplates() {
+    public List<Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>>> getPlanTemplates() {
         return planTemplates;
     }
 

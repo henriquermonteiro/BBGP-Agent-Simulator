@@ -12,6 +12,7 @@ import java.util.Set;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
+import utfpr.edu.bbgp.extended.ResourceFolFormula;
 
 /**
  *
@@ -22,10 +23,10 @@ public class Plan {
     private final SleepingGoal goal;
     private final Object actions;
     private final Set<FolFormula> beliefContext;
-    private final HashMap<String, Double> resourceContext;
+    private final HashSet<ResourceFolFormula> resourceContext;
     private final Set<PerceptionEntry> postConditions;
 
-    public Plan(SleepingGoal goal, Object actions, Set<FolFormula> beliefContext, HashMap<String, Double> resourceContext, Set<PerceptionEntry> postConditions) {
+    public Plan(SleepingGoal goal, Object actions, Set<FolFormula> beliefContext, HashSet<ResourceFolFormula> resourceContext, Set<PerceptionEntry> postConditions) {
         this.goal = goal;
         this.actions = actions;
         this.beliefContext = beliefContext;
@@ -50,7 +51,7 @@ public class Plan {
         return beliefContext;
     }
 
-    public HashMap<String, Double> getResourceContext() {
+    public HashSet<ResourceFolFormula> getResourceContext() {
         return resourceContext;
     }
 

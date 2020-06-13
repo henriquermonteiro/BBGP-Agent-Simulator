@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -400,14 +401,21 @@ public class Agent {
         if (!activeIntentions.contains(intention)) {
             return;
         }
+        
+        System.out.println("Completed " + intention.getGoal().getFullPredicate() + " using plan: " + intention.getUnifiedContext() + " - " + intention.getPlan().getResourceContext() + 
+                " $ " + intention.getPlan().getUnifiedBeliefPostConditionsSet(intention.getGoal().getFullPredicate()));
 
         FolAtom fullF = intention.getGoal().getFullPredicate();
         Plan plan = intention.getPlan();
 
         Map<FolFormula, Boolean> beliefChanges = plan.getUnifiedBeliefPostConditionsSet(fullF);
 
-        for (FolFormula f : beliefChanges.keySet()) {
-            if (beliefChanges.get(f)) {
+        for (FolFormula bel : beliefChanges.keySet()) {
+            FolFormula f = bel;
+            if(intention.getAuxiliaryMapping() != null){
+                f = (FolFormula) bel.substitute(intention.getAuxiliaryMapping());
+            }
+            if (beliefChanges.get(bel)) {
                 beliefAdditionQueue.add(f);
             } else {
                 beliefDeletionQueue.add(f);
@@ -464,7 +472,7 @@ public class Agent {
         boolean changed = goalProcessing.processGoals();
         selectIntention(changed);
 //        doAction();
-        updateBeliefs();
+//        updateBeliefs();
 
     }
 
@@ -614,6 +622,28 @@ public class Agent {
             toString += "\r\n";
         }
 
+        return toString;
+    }
+    
+    public String getOrderingToString() {
+        String toString = "";
+        
+        ArrayList<SleepingGoal> sleepingGoals = new ArrayList<>(goals.getSleepingGoal());
+        
+        sleepingGoals.sort(((arg0, arg1) -> {
+            return (int)((arg0.getPreference() - arg1.getPreference()) * 1000000);
+        }));
+        
+        Iterator<SleepingGoal> iterator = sleepingGoals.iterator();
+        SleepingGoal sG = iterator.next();
+        
+        if(sG != null) toString = sG.getGoalPredicate().toString();
+        
+        while(iterator.hasNext()){
+            sG = iterator.next();
+            toString = toString.concat(" < ").concat(sG.getGoalPredicate().toString());
+        }
+        
         return toString;
     }
 

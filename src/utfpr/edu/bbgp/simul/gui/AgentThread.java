@@ -26,6 +26,8 @@ public class AgentThread extends Thread {
     public synchronized void run() {
         int noActivesCount = 0;
         agent.resetIdleCycleCount();
+        
+        System.out.println(agent.getOrderingToString());
 
         while (control.runCycle() && !this.isInterrupted() && noActivesCount < 10) {
             control.getPerceptionsForCycle(agent.getCycle()).forEach((arg0) -> {

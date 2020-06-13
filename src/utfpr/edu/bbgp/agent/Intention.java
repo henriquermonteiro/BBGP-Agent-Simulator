@@ -6,7 +6,10 @@
 package utfpr.edu.bbgp.agent;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import net.sf.tweety.logics.commons.syntax.Variable;
+import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
 
 /**
@@ -19,12 +22,14 @@ public class Intention {
     private Object currentStep;
     // mapping
     private Set<FolFormula> unifiedContext;
+    // mapping
+    private Map<Variable, Term<?>> auxiliaryMapping;
     // Goal
     private final Goal goal;
     // Plan
     private final Plan plan;
 
-    public Intention(Agent agent, Goal goal, Plan plan, Set<FolFormula> unification) {
+    public Intention(Agent agent, Goal goal, Plan plan, Map<Variable, Term<?>> auxiliaryMapping) {
         if(!goal.getGoalBase().equals(plan.getGoal())){
             throw new IllegalArgumentException("The plan incompatible with goal: The goal of the plan must be the same as the base goal.");
         }
@@ -32,16 +37,23 @@ public class Intention {
         this.agent = agent;
         this.goal = goal;
         this.plan = plan;
+        this.auxiliaryMapping = auxiliaryMapping;
+        
+        Set<FolFormula> unification = plan.getUnifiedSet(goal.getFullPredicate());
+        
+        this.unifiedContext = new HashSet<>(unification.size());
         
         for(FolFormula formula : unification){
-            if(!formula.isGround()){
+            FolFormula unified = (FolFormula) formula.substitute(auxiliaryMapping);
+            
+            if(!unified.isGround()){
                 throw new IllegalArgumentException("All formulas must be grounded.");
             }
+            
+            unifiedContext.add(unified);
         }
         
-        this.unifiedContext = new HashSet<>(unification);
-        
-        this.currentStep = plan.getActions(); // TODO: get root action
+        this.currentStep = plan.getActions();
     }
 
     public Goal getGoal() {
@@ -51,6 +63,10 @@ public class Intention {
     public Plan getPlan() {
         return plan;
     }
+
+    public Set<FolFormula> getUnifiedContext() {
+        return unifiedContext;
+    }
     
     public boolean executeNextStep(){
         System.out.println("Executing action ...");
@@ -58,5 +74,9 @@ public class Intention {
         agent.completeIntention(this);
         
         return true;
+    }
+
+    public Map<Variable, Term<?>> getAuxiliaryMapping() {
+        return auxiliaryMapping;
     }
 }

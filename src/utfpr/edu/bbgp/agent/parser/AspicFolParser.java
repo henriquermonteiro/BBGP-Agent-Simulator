@@ -3,7 +3,6 @@ package utfpr.edu.bbgp.agent.parser;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.Reader;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -22,6 +21,7 @@ import net.sf.tweety.logics.fol.syntax.FolFormula;
 import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.PerceptionEntry;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
+import utfpr.edu.bbgp.extended.ResourceFolFormula;
 
 /**
  *
@@ -52,9 +52,9 @@ public class AspicFolParser extends AspicParser<FolFormula> {
         // ASpicParser Code
         final Pattern ORDER = Pattern.compile(".*<.*(\\s*#.*)?");
         final Pattern PLANS = Pattern.compile("(.+):-([^\\$]+)(\\$(.+))?");
-        final Pattern PLAN_BEL_CONTEXT = Pattern.compile("(((!\\s*)*)?([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\)))?))");
+        final Pattern PLAN_BEL_CONTEXT = Pattern.compile("(((!\\s*)*)?([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(\\w)*(,\\s*[A-Za-z0-9]+(\\w)*)*\\)))?))");
         final Pattern PLAN_RES_CONTEXT = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
-        final Pattern PLAN_BEL_POSTCOND = Pattern.compile("((\\+|\\-)\\s*([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(,\\s*[A-Za-z0-9]+)*\\)))?))");
+        final Pattern PLAN_BEL_POSTCOND = Pattern.compile("((\\+|\\-)\\s*([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(\\w)*(,\\s*[A-Za-z0-9]+(\\w)*)*\\)))?))");
         final Pattern PLAN_RES_POSTCOND = Pattern.compile("(\\+|\\-)\\s*(res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
         final Pattern RESOURCES = Pattern.compile("\\s*res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?)\\s*(\\s*#.*)?");
 
@@ -84,7 +84,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                 m_res = PLAN_RES_CONTEXT.matcher(context);
 
                 HashSet<FolFormula> beliefContext = new HashSet<>();
-                HashMap<String, Double> resourceContext = new HashMap<>();
+                HashSet<ResourceFolFormula> resourceContext = new HashSet<>();
 
                 while (m_res.find()) {
                     String element = context.substring(m_res.start(), m_res.end());
@@ -101,7 +101,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                             value *= -1;
                         }
 
-                        resourceContext.put(resource, value);
+                        resourceContext.add(new ResourceFolFormula(resource, value));
                     }
                 }
                 
@@ -178,7 +178,8 @@ public class AspicFolParser extends AspicParser<FolFormula> {
     public Formula parseFormula(Reader reader) throws IOException, ParserException {
         final Pattern RULE = Pattern.compile("(.*)(" + symbolStrict + "|" + symbolDefeasible + ")(.+)"),
                 RULE_ID = Pattern.compile("^\\s*([A-Za-z0-9]+)\\s*:(.*)"),
-                RULE_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+(\\w*)*(\\(([A-Za-z0-9]|\\s|,)+\\))?)\\s*"), // new pattern
+                RULE_RES_BODY = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))"),
+                RULE_BEL_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+(\\w*)*(\\(([A-Za-z0-9]|\\s|,)+\\))?)\\s*"),
                 EMPTY = Pattern.compile("^\\s*$");
 
         BufferedReader br = new BufferedReader(reader);
@@ -200,13 +201,35 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                 str = m.group(2);
             }
             if (!EMPTY.matcher(str).matches()) {
-                m = RULE_BODY.matcher(str); // Changed to use pattern and avoid the comma error on predicates with two or more terms
+                m = RULE_RES_BODY.matcher(str);
+                String str2 = str;
+                
+                while (m.find()) {
+                    String element = str.substring(m.start(), m.end());
+                    str2 = str.replaceAll(element, "");
+                    
+                    String[] split = element.split(":");
+                    if (split.length == 2) {
+                        split = split[1].split(",");
+
+                        String resource = split[0].trim();
+                        Double value = Double.parseDouble(split[1].trim());
+                        
+                        if (element.startsWith("!")) {
+                            value *= -1;
+                        }
+                        
+                        rule.addPremise(new ResourceFolFormula(resource, value));
+                    }
+                }
+                
+                m = RULE_BEL_BODY.matcher(str2);
 
                 while (m.find()) {
-                    String s = str.substring(m.start(), m.end());
+                    String s = str2.substring(m.start(), m.end());
 
                     rule.addPremise(Agent.parseFolFormulaSafe(s, folParser.getSignature()));
-                } // End of changes
+                }
             }
             return rule;
         }

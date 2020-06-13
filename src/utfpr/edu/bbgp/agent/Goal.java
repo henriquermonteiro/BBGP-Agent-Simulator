@@ -5,8 +5,10 @@
  */
 package utfpr.edu.bbgp.agent;
 
+import java.util.Map;
 import java.util.Objects;
 import net.sf.tweety.logics.commons.syntax.Constant;
+import net.sf.tweety.logics.commons.syntax.Variable;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
 import utfpr.edu.bbgp.extended.GoalFolAtom;
@@ -22,6 +24,7 @@ public class Goal implements Comparable<Goal>{
     private GoalStage stage;
     private Constant goalTerm;
     private int sugestedPlanIndex;
+    private Map<Variable, Term<?>> sugestedSubstitution;
 
     public Goal(Agent agent, SleepingGoal goalBase, FolAtom fullPredicate, GoalStage stage) {
         this.agent = agent;
@@ -149,5 +152,13 @@ public class Goal implements Comparable<Goal>{
 
     public int getSugestedPlanIndex() {
         return sugestedPlanIndex;
+    }
+
+    public Map<Variable, Term<?>> getSugestedSubstitution() {
+        return sugestedSubstitution;
+    }
+
+    public void setSugestedSubstitution(Map<Variable, Term<?>> sugestedSubstitution) {
+        this.sugestedSubstitution = sugestedSubstitution;
     }
 }

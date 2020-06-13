@@ -1,5 +1,6 @@
 package utfpr.edu.bbgp.agent.manager;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Set;
@@ -122,6 +123,10 @@ public class GoalManager{
     
     public SleepingGoal getGoalBase(Predicate pred){
         return sleepingGoals.get(pred);
+    }
+    
+    public Collection<SleepingGoal> getSleepingGoal() {
+        return sleepingGoals.values();
     }
 
     public boolean contaisSleepingGoal(SleepingGoal goal) {

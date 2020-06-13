@@ -23,6 +23,7 @@ import utfpr.edu.bbgp.agent.Plan;
 import utfpr.edu.bbgp.agent.SleepingGoal;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
 import utfpr.edu.bbgp.agent.parser.AspicFolParser;
+import utfpr.edu.bbgp.extended.ResourceFolFormula;
 
 /**
  *
@@ -103,7 +104,7 @@ public class AgentGenerator {
         if(theory instanceof AspicArgumentationTheoryFol){
             AspicArgumentationTheoryFol theoryFol = (AspicArgumentationTheoryFol) theory;
             
-            for(Quadruplet<FolFormula, HashSet<FolFormula>, HashMap<String, Double>, HashSet<PerceptionEntry>> t : theoryFol.getPlanTemplates()){
+            for(Quadruplet<FolFormula, HashSet<FolFormula>, HashSet<ResourceFolFormula>, HashSet<PerceptionEntry>> t : theoryFol.getPlanTemplates()){
                 if(formulaTosleepingGoalsMap.containsKey(t.getT())){
                     a.addPlanTemplate(new Plan(formulaTosleepingGoalsMap.get(t.getT()), null, t.getU(), t.getV(), t.getW()));
                 }
