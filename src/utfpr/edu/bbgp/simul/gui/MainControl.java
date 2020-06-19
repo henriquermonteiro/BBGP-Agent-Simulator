@@ -79,7 +79,7 @@ public class MainControl extends JFrame {
     private JTree tree;
     private DefaultMutableTreeNode treeRoot;
     private JTextArea explanationArea;
-    
+
     private JSplitPane splitPanelKB;
     private JSplitPane splitPanelGM;
     private JSplitPane splitPanelExplaination;
@@ -186,8 +186,18 @@ public class MainControl extends JFrame {
         output.setPreferredSize(new Dimension(400, 100));
 
         splitPanelKB = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
-        splitPanelKB.setLeftComponent(new JScrollPane(scriptQueue){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
-        splitPanelKB.setRightComponent(new JScrollPane(beliefBase){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
+        splitPanelKB.setLeftComponent(new JScrollPane(scriptQueue) {
+            @Override
+            public Dimension getMinimumSize() {
+                return new Dimension(0, 0);
+            }
+        });
+        splitPanelKB.setRightComponent(new JScrollPane(beliefBase) {
+            @Override
+            public Dimension getMinimumSize() {
+                return new Dimension(0, 0);
+            }
+        });
 
         JPanel kbInspectorPanel = new JPanel(new BorderLayout());
 
@@ -234,7 +244,12 @@ public class MainControl extends JFrame {
 
         splitPanelGM = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
-        splitPanelGM.setLeftComponent(new JScrollPane(goalList){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
+        splitPanelGM.setLeftComponent(new JScrollPane(goalList) {
+            @Override
+            public Dimension getMinimumSize() {
+                return new Dimension(0, 0);
+            }
+        });
         splitPanelGM.setRightComponent(afPanel);
 
         treeRoot = new DefaultMutableTreeNode("root");
@@ -243,15 +258,15 @@ public class MainControl extends JFrame {
         tree.setShowsRootHandles(true);
         tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
         tree.addTreeSelectionListener((arg0) -> {
-            if(arg0.getNewLeadSelectionPath() == null){
+            if (arg0.getNewLeadSelectionPath() == null) {
                 return;
             }
-            
+
             TreeExplanationEntry entry = (TreeExplanationEntry) ((DefaultMutableTreeNode) arg0.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
-            
+
             explanationArea.setText(entry.getExplanation());
         });
-        
+
         DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
         Icon noIcon = null;
         renderer.setLeafIcon(noIcon);
@@ -264,13 +279,23 @@ public class MainControl extends JFrame {
 
         splitPanelExplaination = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
-        splitPanelExplaination.setLeftComponent(new JScrollPane(tree){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
-        splitPanelExplaination.setRightComponent(new JScrollPane(explanationArea){@Override public Dimension getMinimumSize() {return new Dimension(0, 0);}});
+        splitPanelExplaination.setLeftComponent(new JScrollPane(tree) {
+            @Override
+            public Dimension getMinimumSize() {
+                return new Dimension(0, 0);
+            }
+        });
+        splitPanelExplaination.setRightComponent(new JScrollPane(explanationArea) {
+            @Override
+            public Dimension getMinimumSize() {
+                return new Dimension(0, 0);
+            }
+        });
 
         JTabbedPane tabPane = new JTabbedPane(JTabbedPane.TOP);
         tabPane.addTab("Belief inspector", kbInspectorPanel);
         tabPane.addTab("Goal memory inspector", splitPanelGM);
-        tabPane.addTab("Pursuable goal explaination", splitPanelExplaination);
+        tabPane.addTab("Goal explanation", splitPanelExplaination);
 
         JPanel innerP2 = new JPanel(new BorderLayout(6, 6));
         innerP2.add(toolP, BorderLayout.PAGE_START);
@@ -331,11 +356,11 @@ public class MainControl extends JFrame {
                     }
 
                     updateInfo(aThread.getAgent());
-                    
+
                     int pos = splitPanelKB.getInsets().left + scriptQueue.getPreferredSize().width;
-                    Insets scrollInsets = ((JScrollPane)splitPanelKB.getLeftComponent()).getInsets();
+                    Insets scrollInsets = ((JScrollPane) splitPanelKB.getLeftComponent()).getInsets();
                     pos += scrollInsets.left + scrollInsets.right;
-                    JScrollBar vBar = ((JScrollPane)splitPanelKB.getLeftComponent()).getVerticalScrollBar();
+                    JScrollBar vBar = ((JScrollPane) splitPanelKB.getLeftComponent()).getVerticalScrollBar();
                     pos += (vBar.isVisible() ? vBar.getWidth() : 0);
                     splitPanelKB.setDividerLocation(pos);
                 } catch (IOException ex) {
@@ -447,20 +472,20 @@ public class MainControl extends JFrame {
                 changed = true;
             }
 
-            if (m.getGoalStage() == GoalStage.Choosen) {
-                pursuableEntries.add(m);
-                if (!pursuableEntriesCycles.contains(m.getCycle())) {
-                    pursuableEntriesCycles.add(m.getCycle());
-            
-                }
+//            if (m.getGoalStage() == GoalStage.Choosen) {
+            pursuableEntries.add(m);
+            if (!pursuableEntriesCycles.contains(m.getCycle())) {
+                pursuableEntriesCycles.add(m.getCycle());
+
             }
+//            }
         }
-        
-        if(changed){
+
+        if (changed) {
             int pos = splitPanelGM.getInsets().left + goalList.getPreferredSize().width;
-            Insets scrollInsets = ((JScrollPane)splitPanelGM.getLeftComponent()).getInsets();
+            Insets scrollInsets = ((JScrollPane) splitPanelGM.getLeftComponent()).getInsets();
             pos += scrollInsets.left + scrollInsets.right;
-            JScrollBar vBar = ((JScrollPane)splitPanelGM.getLeftComponent()).getVerticalScrollBar();
+            JScrollBar vBar = ((JScrollPane) splitPanelGM.getLeftComponent()).getVerticalScrollBar();
             pos += (vBar.isVisible() ? vBar.getWidth() : 0);
             splitPanelGM.setDividerLocation(pos);
         }
@@ -472,39 +497,114 @@ public class MainControl extends JFrame {
         output.setText(gMemorytToString);
 
         DefaultTreeModel treeModel = (DefaultTreeModel) tree.getModel();
-        if(treeRoot.getChildCount() != pursuableEntriesCycles.size()){
+        if (treeRoot.getChildCount() != pursuableEntriesCycles.size()) {
             Long[] cycleList = pursuableEntriesCycles.toArray(new Long[]{});
             Arrays.sort(cycleList);
-            
+
             treeRoot.removeAllChildren();
-            
-            for(Long cycle : cycleList){
+
+            for (Long cycle : cycleList) {
                 DefaultMutableTreeNode cycleNode = null;
-                for(GoalMemory gM : pursuableEntries){
-                    if(Objects.equals(gM.getCycle(), cycle)){
-                        if(cycleNode == null){
-                            cycleNode = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, false), true);
+                DefaultMutableTreeNode cycleNodeActive = null;
+                double cycleNodeActivePreference = -1.0;
+                DefaultMutableTreeNode cycleNodePursuable = null;
+                double cycleNodePursuablePreference = -1.0;
+                DefaultMutableTreeNode cycleNodeChosen = null;
+                double cycleNodeChosenPreference = -1.0;
+                DefaultMutableTreeNode cycleNodeExecutible = null;
+                double cycleNodeExecutiblePreference = -1.0;
+                for (GoalMemory gM : pursuableEntries) {
+                    if (Objects.equals(gM.getCycle(), cycle)) {
+                        if (cycleNode == null) {
+                            cycleNode = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.CYCLE_TYPE), true);
                         }
-                        
-                        cycleNode.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, true), false));
+
+                        double pref = gM.getGoalPreference();
+
+                        switch (gM.getGoalStage()) {
+                            case Active:
+                                if (cycleNodeActive == null) {
+                                    cycleNodeActive = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeActivePreference = pref;
+                                } else if (pref > cycleNodeActivePreference) {
+                                    cycleNodeActive.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeActivePreference = pref;
+                                }
+
+                                cycleNodeActive.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Pursuable:
+                                if (cycleNodePursuable == null) {
+                                    cycleNodePursuable = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodePursuablePreference = pref;
+                                } else if (pref > cycleNodePursuablePreference) {
+                                    cycleNodePursuable.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodePursuablePreference = pref;
+                                }
+
+                                cycleNodePursuable.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Chosen:
+                                if (cycleNodeChosen == null) {
+                                    cycleNodeChosen = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeChosenPreference = pref;
+                                } else if (pref > cycleNodeChosenPreference) {
+                                    cycleNodeChosen.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeChosenPreference = pref;
+                                }
+
+                                cycleNodeChosen.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Executive:
+                                if (cycleNodeExecutible == null) {
+                                    cycleNodeExecutible = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeExecutiblePreference = pref;
+                                } else if (pref > cycleNodeExecutiblePreference) {
+                                    cycleNodeExecutible.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeExecutiblePreference = pref;
+                                }
+
+                                cycleNodeExecutible.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                        }
                     }
                 }
-                
-                treeRoot.add(cycleNode);
+
+                if (cycleNodeActive != null) {
+                    cycleNode.add(cycleNodeActive);
+                }
+                if (cycleNodePursuable != null) {
+                    cycleNode.add(cycleNodePursuable);
+                }
+                if (cycleNodeChosen != null) {
+                    cycleNode.add(cycleNodeChosen);
+                }
+                if (cycleNodeExecutible != null) {
+                    cycleNode.add(cycleNodeExecutible);
+                }
+
+                if (!cycleNode.isLeaf()) {
+                    treeRoot.add(cycleNode);
+                }
             }
-            
+
             treeModel.reload();
-            
+
             treeRoot.children().asIterator().forEachRemaining((arg0) -> {
                 DefaultMutableTreeNode el = (DefaultMutableTreeNode) arg0;
                 TreePath path = new TreePath(((DefaultMutableTreeNode)el.getChildAt(0)).getPath());
                 tree.makeVisible(path);
+                el.children().asIterator().forEachRemaining((arg1) -> {
+                    DefaultMutableTreeNode el2 = (DefaultMutableTreeNode) arg1;
+                    TreePath path2 = new TreePath(((DefaultMutableTreeNode) el2.getChildAt(0)).getPath());
+                    tree.makeVisible(path2);
+                });
             });
-            
+
             int pos = splitPanelExplaination.getInsets().left + tree.getPreferredSize().width;
-            Insets scrollInsets = ((JScrollPane)splitPanelExplaination.getLeftComponent()).getInsets();
+            Insets scrollInsets = ((JScrollPane) splitPanelExplaination.getLeftComponent()).getInsets();
             pos += scrollInsets.left + scrollInsets.right;
-            JScrollBar vBar = ((JScrollPane)splitPanelExplaination.getLeftComponent()).getVerticalScrollBar();
+            JScrollBar vBar = ((JScrollPane) splitPanelExplaination.getLeftComponent()).getVerticalScrollBar();
             pos += (vBar.isVisible() ? vBar.getWidth() : 0);
             splitPanelExplaination.setDividerLocation(pos);
         }

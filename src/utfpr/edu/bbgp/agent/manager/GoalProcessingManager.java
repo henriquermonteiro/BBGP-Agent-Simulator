@@ -299,7 +299,7 @@ public class GoalProcessingManager {
             }
         }
 
-        for (Goal g : goals.getGoalByStage(GoalStage.Choosen)) {
+        for (Goal g : goals.getGoalByStage(GoalStage.Chosen)) {
             Argument arg = new Argument(g.getFullPredicate().toString() + "_" + (g.getSugestedPlanIndex()) + "_s");
 
             argToGoalMap.put(arg, g);
@@ -549,7 +549,7 @@ public class GoalProcessingManager {
 
         Collection<Extension> models = getPossibleBeliefsModels();
 
-        for (Goal choosenGoal : goals.getGoalByStage(GoalStage.Choosen)) {
+        for (Goal choosenGoal : goals.getGoalByStage(GoalStage.Chosen)) {
             if (!planLib.get(choosenGoal.getGoalBase()).isEmpty()) {
                 boolean validContext = false;
 
@@ -816,7 +816,7 @@ public class GoalProcessingManager {
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
         theory.addAll(agent.getBeliefs());
-        theory.addAll(agent.getStandardRules());
+//        theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getDeliberationRules());
         theory.addAll(competence);
         theory.addAll(incompetence);
@@ -852,7 +852,7 @@ public class GoalProcessingManager {
                                         list.add(arg);
 
                                         if (accepted) {
-                                            gAx.setStage(GoalStage.Choosen);
+                                            gAx.setStage(GoalStage.Chosen);
                                             changed = true;
                                         }
                                     }
@@ -870,14 +870,14 @@ public class GoalProcessingManager {
             List<Argument> targets = null;
             if (argumentsForGoal.containsKey(g)) {
                 targets = argumentsForGoal.get(g);
-                if (g.getStage() == GoalStage.Choosen) {
+                if (g.getStage() == GoalStage.Chosen) {
                     agent.addGoalMemoryEntry(new GoalMemory(agent, agent.getCycle(), g, true, targets, dTheory, selected));
                     continue;
                 }
             }
 
             Goal gClone = g.clone();
-            gClone.setStage(GoalStage.Choosen);
+            gClone.setStage(GoalStage.Chosen);
             agent.addGoalMemoryEntry(new GoalMemory(agent, agent.getCycle(), gClone, false, targets, dTheory, selected));
         }
     }
@@ -919,7 +919,7 @@ public class GoalProcessingManager {
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
         theory.addAll(agent.getBeliefs());
-        theory.addAll(agent.getStandardRules());
+//        theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getCheckingRules());
         theory.addAll(competence);
         theory.addAll(context);
@@ -931,7 +931,7 @@ public class GoalProcessingManager {
 
         HashSet<Goal> executiveGoals = new HashSet<>();
 
-        Set<Goal> choosen = goals.getGoalByStage(GoalStage.Choosen);
+        Set<Goal> choosen = goals.getGoalByStage(GoalStage.Chosen);
         HashMap<Goal, ArrayList<Argument>> argumentsForGoal = new HashMap<>();
 
         for (Argument arg : dTheory) {

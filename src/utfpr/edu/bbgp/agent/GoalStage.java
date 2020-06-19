@@ -10,7 +10,7 @@ package utfpr.edu.bbgp.agent;
  * @author henri
  */
 public enum GoalStage {
-    Active("Active"), Pursuable("Pursuable"), Choosen("Chosen"), Executive("Executive"), Cancelled("Cancelled"), Completed("Completed");
+    Active("Active"), Pursuable("Pursuable"), Chosen("Chosen"), Executive("Executive"), Cancelled("Cancelled"), Completed("Completed");
     
     private final String stage_name;
 

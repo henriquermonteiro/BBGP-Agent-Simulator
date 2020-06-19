@@ -107,9 +107,9 @@ public class GoalManager{
                 filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Pursuable));
                 return filteredGoals;
             case Pursuable:
-                filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Choosen));
+                filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Chosen));
                 return filteredGoals;
-            case Choosen:
+            case Chosen:
                 filteredGoals.addAll(getGoalAtLeastAtStage(GoalStage.Executive));
                 return filteredGoals;
         }

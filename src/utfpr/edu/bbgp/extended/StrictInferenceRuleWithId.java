@@ -13,8 +13,9 @@ import net.sf.tweety.logics.commons.syntax.interfaces.Invertable;
  *
  * @author henri
  */
-public class StrictInferenceRuleWithId<T extends Invertable> extends StrictInferenceRule<T>{
+public class StrictInferenceRuleWithId<T extends Invertable> extends StrictInferenceRule<T> implements RuleWithIdInterface{
     private String ruleId = "";
+    private String explanationSchema = null;
 
     public StrictInferenceRuleWithId() {
     }
@@ -28,13 +29,28 @@ public class StrictInferenceRuleWithId<T extends Invertable> extends StrictInfer
         
         this.setConclusion(rule.getConclusion());
         rule.getPremise().forEach((item) -> {this.addPremise(item);});
+        
+        if(rule instanceof StrictInferenceRuleWithId){
+            this.explanationSchema = ((StrictInferenceRuleWithId)rule).explanationSchema;
+        }
     }
 
+    @Override
+    public String getExplanationSchema() {
+        return explanationSchema;
+    }
+
+    public StrictInferenceRuleWithId setExplanationSchema(String explanationSchema) {
+        this.explanationSchema = explanationSchema;
+        return this;
+    }
+
+    @Override
     public String getRuleId() {
         return ruleId;
     }
 
-    public StrictInferenceRule setRuleId(String ruleId) {
+    public StrictInferenceRuleWithId setRuleId(String ruleId) {
         this.ruleId = ruleId;
         return this;
     }

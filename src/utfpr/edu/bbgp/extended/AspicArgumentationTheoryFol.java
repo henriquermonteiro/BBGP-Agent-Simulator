@@ -205,13 +205,13 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                         if (rule instanceof StrictInferenceRule) {
                             unifiedRule = new StrictInferenceRuleWithId<>();
                             if (rule instanceof StrictInferenceRuleWithId) {
-                                ((StrictInferenceRuleWithId) unifiedRule).setRuleId(((StrictInferenceRuleWithId) rule).getRuleId());
+                                ((StrictInferenceRuleWithId) unifiedRule).setRuleId(((StrictInferenceRuleWithId) rule).getRuleId()).setExplanationSchema(((StrictInferenceRuleWithId) rule).getExplanationSchema());
                             }
 
                         } else {
                             unifiedRule = new DefeasibleInferenceRuleWithId<>();
                             if (rule instanceof DefeasibleInferenceRuleWithId) {
-                                ((DefeasibleInferenceRuleWithId) unifiedRule).setRuleId(((DefeasibleInferenceRuleWithId) rule).getRuleId());
+                                ((DefeasibleInferenceRuleWithId) unifiedRule).setRuleId(((DefeasibleInferenceRuleWithId) rule).getRuleId()).setExplanationSchema(((DefeasibleInferenceRuleWithId) rule).getExplanationSchema());
                             }
                         }
 

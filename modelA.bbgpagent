@@ -7,19 +7,19 @@
 => newSupply(bed)
 => supportWeight(man_32) 
 
-newSupply(X) -> available(X, Y)
-hasFractBone(X) => injuredSevere(X)
-fractBoneIs(X, arm) => !injuredSevere(X)
-openFracture(X) -> injuredSevere(X) 
+newSupply(X) -> available(X, Y) {A supply of <term_0_0>, that was not accounted before, became available to whoever might need.}
+hasFractBone(X) => injuredSevere(X) {A fractured bone could be a severe injure.}
+fractBoneIs(X, arm) => !injuredSevere(X) {If the fractured bone is in the arm it might not be severe.}
+openFracture(X) -> injuredSevere(X) {An open fracture is a severe injure, without exceptions.}
 
-act1 : injuredSevere(X) -> takeHospital(G, X)
-act2 : !injuredSevere(X) -> sendShelter(G, X)
-act3 : askedForHelp(X, Y) => go(G, X, Y) 
+act1 : injuredSevere(X) -> takeHospital(G, X) {Since [if_accepted?:it was not clear if] <term_conc_1> had a severe injure, <goal_name_0> [if_accepted?became:did not become] active.}
+act2 : !injuredSevere(X) -> sendShelter(G, X) {Since [if_accepted?:it was refuted that] <term_conc_1> injure was [if_accepted?not:] considered severe, <goal_name_0> [if_accepted?became:did not become] active.}
+act3 : askedForHelp(X, Y) => go(G, X, Y) {Since a call for helped was issued at coordenates (<term_0_0>,<term_0_1>), <goal_name_0> became active.}
 
-!supportWeight(X) -> !takeHospital(G, X)
-!available(bed, X) -> !takeHospital(G, X)
-rescued(X) -> !takeHospital(G, X)
-rescued(X) -> !sendShelter(G, X) 
+!supportWeight(X) -> !takeHospital(G, X) {Since I cannot support the weight of <term_0_0>, <goal_name_0> did not become pursuable.}
+!available(bed, X) -> !takeHospital(G, X) {Since the hospital did not had a bed available for <term_0_1>, <goal_name_0> did not become pursuable.}
+rescued(X) -> !takeHospital(G, X) {Since <term_0_0> had already been rescued, <goal_name_0> did not become pursuable.}
+rescued(X) -> !sendShelter(G, X) {Since <term_0_0> had already been rescued, <goal_name_0> did not become pursuable.}
 
 
 act3 < act2 < act1

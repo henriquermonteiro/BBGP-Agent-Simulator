@@ -13,8 +13,9 @@ import net.sf.tweety.logics.commons.syntax.interfaces.Invertable;
  *
  * @author henri
  */
-public class DefeasibleInferenceRuleWithId<T extends Invertable> extends DefeasibleInferenceRule<T>{
+public class DefeasibleInferenceRuleWithId<T extends Invertable> extends DefeasibleInferenceRule<T> implements RuleWithIdInterface{
     private String ruleId;
+    private String explanationSchema = null;
 
     public DefeasibleInferenceRuleWithId() {
     }
@@ -28,13 +29,28 @@ public class DefeasibleInferenceRuleWithId<T extends Invertable> extends Defeasi
         
         this.setConclusion(rule.getConclusion());
         rule.getPremise().forEach((item) -> {this.addPremise(item);});
+        
+        if(rule instanceof DefeasibleInferenceRuleWithId){
+            this.explanationSchema = ((DefeasibleInferenceRuleWithId)rule).explanationSchema;
+        }
     }
 
+    @Override
+    public String getExplanationSchema() {
+        return explanationSchema;
+    }
+
+    public DefeasibleInferenceRuleWithId setExplanationSchema(String explanationSchema) {
+        this.explanationSchema = explanationSchema;
+        return this;
+    }
+
+    @Override
     public String getRuleId() {
         return ruleId;
     }
 
-    public DefeasibleInferenceRule setRuleId(String ruleId) {
+    public DefeasibleInferenceRuleWithId setRuleId(String ruleId) {
         this.ruleId = ruleId;
         return this;
     }

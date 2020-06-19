@@ -9,12 +9,17 @@ import utfpr.edu.bbgp.agent.GoalMemory;
 public class TreeExplanationEntry {
     private final String displayText;
     private final GoalMemory entry;
-    private final boolean isPartial;
+    private final char type;
+    
+    public final static char CYCLE_TYPE = 'c';
+    public final static char STAGE_TYPE = 's';
+    public final static char GOAL_TYPE = 'g';
 
-    public TreeExplanationEntry(GoalMemory entry, boolean isPartial) {
+    public TreeExplanationEntry(GoalMemory entry, char type) {
         this.entry = entry;
-        this.isPartial = isPartial;
-        displayText = (isPartial ? entry.getGoalFullPredicate() : String.format("Cycle %03d:", entry.getCycle()));
+        this.type = type;
+        if(type != CYCLE_TYPE && type != STAGE_TYPE && type != GOAL_TYPE) throw new IllegalArgumentException("Invalid type. Must be one of: TreeExplanationEntry.CYCLE_TYPE, TreeExplanationEntry.STAGE_TYPE or TreeExplanationEntry.GOAL_TYPE.");
+        displayText = (type == GOAL_TYPE ? entry.getGoalFullPredicate() : (type == CYCLE_TYPE ? String.format("Cycle %03d:", entry.getCycle()) : entry.getGoalStage().getStage_name()));
     }
 
     @Override
@@ -23,6 +28,7 @@ public class TreeExplanationEntry {
     }
     
     public String getExplanation(){
-        return entry.explain(!isPartial);
+        if(type == CYCLE_TYPE) return "Select a stage or goal.";
+        return entry.explain(type == STAGE_TYPE);
     }
 }

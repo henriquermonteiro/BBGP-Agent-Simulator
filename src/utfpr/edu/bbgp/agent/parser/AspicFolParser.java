@@ -22,7 +22,9 @@ import net.sf.tweety.logics.fol.syntax.FolFormula;
 import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.PerceptionEntry;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
+import utfpr.edu.bbgp.extended.DefeasibleInferenceRuleWithId;
 import utfpr.edu.bbgp.extended.ResourceFolFormula;
+import utfpr.edu.bbgp.extended.StrictInferenceRuleWithId;
 
 /**
  *
@@ -51,7 +53,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
     @Override
     public AspicArgumentationTheory<FolFormula> parseBeliefBase(Reader reader) throws IOException, ParserException {
         // ASpicParser Code
-        final Pattern ORDER = Pattern.compile(".*<.*(\\s*#.*)?");
+        final Pattern ORDER = Pattern.compile("\\s*\\w+\\s*(<\\s*\\w+\\s*)+(\\s*#.*)?");
         final Pattern PLANS = Pattern.compile("(.+):-([^\\$]+)(\\$(.+))?");
         final Pattern PLAN_BEL_CONTEXT = Pattern.compile("(((!\\s*)*)?([A-Za-z0-9]+(\\w*)*((\\([A-Za-z0-9]+(\\w)*(,\\s*[A-Za-z0-9]+(\\w)*)*\\)))?))");
         final Pattern PLAN_RES_CONTEXT = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))");
@@ -177,7 +179,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
 
     @Override
     public Formula parseFormula(Reader reader) throws IOException, ParserException {
-        final Pattern RULE = Pattern.compile("(.*)(" + symbolStrict + "|" + symbolDefeasible + ")(.+)"),
+        final Pattern RULE = Pattern.compile("(.*)(" + symbolStrict + "|" + symbolDefeasible + ")([^\\{|\\}|\\n]+)(\\{.*\\})?"),
                 RULE_ID = Pattern.compile("^\\s*([A-Za-z0-9]+)\\s*:(.*)"),
                 RULE_RES_BODY = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))"),
                 RULE_BEL_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+(\\w*)*(\\(([A-Za-z0-9]|\\s|,)+\\))?)\\s*"),
@@ -190,10 +192,11 @@ public class AspicFolParser extends AspicParser<FolFormula> {
         }
         Matcher m = RULE.matcher(line);
         if (m.matches()) {
+            String schema = m.group(4);
             InferenceRule<FolFormula> rule
-                    = m.group(2).equals(symbolDefeasible)
-                    ? new DefeasibleInferenceRule<>()
-                    : new StrictInferenceRule<>();
+                    = (m.group(2).equals(symbolDefeasible)
+                    ? new DefeasibleInferenceRuleWithId<>().setExplanationSchema(schema)
+                    : new StrictInferenceRuleWithId<>().setExplanationSchema(schema));
             rule.setConclusion(Agent.parseFolFormulaSafe(m.group(3).split("#")[0], folParser.getSignature()));
             String str = m.group(1);
             m = RULE_ID.matcher(str);

@@ -326,6 +326,7 @@ public class Agent {
                 Arrays.asList(parseFolFormulaSafeFromForm(NOT_HAS_INCOMPATIBILITY_STR, gVar1.get())));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^001");
+        rule.setExplanationSchema("<goal_name_0> has no incompatibility, so it became chosen.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(preferred, gVar1, gVar2)));
         rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
@@ -333,12 +334,14 @@ public class Agent {
                         parseFolFormulaSafeFromForm(PREFERRED_STR, gVar1.get(), gVar2.get())));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^002");
+        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> is more preferable than <goal_name_1>, <goal_name_0> became chosen.");
 
         rule = new StrictInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar2.get())),
                 Arrays.asList(parseFolFormulaSafeFromForm(INCOMPATIBLE_STR, gVar1.get(), gVar2.get(), tVar.get()),
                         new Negation(parseFolFormulaSafeFromForm(PREFERRED_STR, gVar2.get(), gVar1.get()))));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^003");
+        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_1> is less preferable than <goal_name_0>, <goal_name_1> did not become chosen.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(eqPreferred, gVar1, gVar2)));
         rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
@@ -346,17 +349,20 @@ public class Agent {
                         parseFolFormulaSafeFromForm(EQ_PREFERRED_STR, gVar1.get(), gVar2.get())));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^004");
+        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> and <goal_name_1> have the same preference value, <goal_name_0> [if_accepted?became chosen:would have became chosen if it maximized the utility].");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(defends, gVar3, gVar1, gVar2)));
         rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(MAX_UTIL_STR, gVar1.get())));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^005");
+        rule.setExplanationSchema("Since <goal_name_0> belonged to the set of goals that maximize the utility, it became chosen.");
 
         rule = new StrictInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get())),
                 Arrays.asList(new Negation(parseFolFormulaSafeFromForm(MAX_UTIL_STR, gVar1.get()))));
         deliberationRules.add(rule);
         rule.setRuleId("R_de^006");
+        rule.setExplanationSchema("Since <goal_name_0> did not belong to the set of goals that maximizes the utility, it did not become chosen.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(executive, gVar1), Arrays.asList(new FolAtom(hasPlansFor, gVar1), new FolAtom(satisfiedContext, gVar1)));
         rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(EXECUTIVE_STR, gVar1.get()),
@@ -364,6 +370,7 @@ public class Agent {
                         parseFolFormulaSafeFromForm(SATISFIED_CONTEXT_STR, gVar1.get())));
         checkingRules.add(rule);
         rule.setRuleId("R_ch^001");
+        rule.setExplanationSchema("Since the selected plan for <goal_name_0> had its preconditions meet, <goal_name_0> became executible.");
 
     }
 
@@ -658,7 +665,7 @@ public class Agent {
         if (!goals.getGoalByStage(GoalStage.Pursuable).isEmpty()) {
             return false;
         }
-        if (!goals.getGoalByStage(GoalStage.Choosen).isEmpty()) {
+        if (!goals.getGoalByStage(GoalStage.Chosen).isEmpty()) {
             return false;
         }
         if (!goals.getGoalByStage(GoalStage.Executive).isEmpty()) {
