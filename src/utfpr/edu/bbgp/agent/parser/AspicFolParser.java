@@ -10,9 +10,7 @@ import java.util.regex.Pattern;
 import net.sf.tweety.arg.aspic.parser.AspicParser;
 import net.sf.tweety.arg.aspic.ruleformulagenerator.RuleFormulaGenerator;
 import net.sf.tweety.arg.aspic.syntax.AspicArgumentationTheory;
-import net.sf.tweety.arg.aspic.syntax.DefeasibleInferenceRule;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
-import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
 import net.sf.tweety.commons.BeliefBase;
 import net.sf.tweety.commons.Formula;
 import net.sf.tweety.commons.Parser;
@@ -66,8 +64,12 @@ public class AspicFolParser extends AspicParser<FolFormula> {
         BufferedReader br = new BufferedReader(reader);
         String line;
         Matcher m, m2, m_res;
+        int lineCount = 0;
+        
+        try{
         while (true) {
             line = br.readLine();
+            lineCount++;
             if (line == null) {
                 break;
             }
@@ -173,6 +175,10 @@ public class AspicFolParser extends AspicParser<FolFormula> {
                 }
             }
         }
+        }catch(Exception ex){
+            System.out.println("Error while parsing line " + lineCount +": \n" + ex.getMessage());
+            System.exit(-1);
+        }
 
         return as;
     }
@@ -180,7 +186,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
     @Override
     public Formula parseFormula(Reader reader) throws IOException, ParserException {
         final Pattern RULE = Pattern.compile("(.*)(" + symbolStrict + "|" + symbolDefeasible + ")([^\\{|\\}|\\n]+)(\\{.*\\})?"),
-                RULE_ID = Pattern.compile("^\\s*([A-Za-z0-9]+)\\s*:(.*)"),
+                RULE_ID = Pattern.compile("^\\s*([A-Za-z0-9]+(\\_[A-Za-z0-9]+)?(\\^[A-Za-z0-9]+)?)\\s*:(.*)"),
                 RULE_RES_BODY = Pattern.compile("((!\\s*)?res\\s*:\\s*([A-Za-z0-9]+\\s*,\\s*[0-9]+(.[0-9]+)?))"),
                 RULE_BEL_BODY = Pattern.compile("\\s*(!)*\\s*([A-Za-z0-9]+(\\w*)*(\\(([A-Za-z0-9]|\\s|,)+\\))?)\\s*"),
                 EMPTY = Pattern.compile("^\\s*$");
@@ -202,7 +208,7 @@ public class AspicFolParser extends AspicParser<FolFormula> {
             m = RULE_ID.matcher(str);
             if (m.matches()) {
                 rule.setName(m.group(1));
-                str = m.group(2);
+                str = m.group(4);
             }
             if (!EMPTY.matcher(str).matches()) {
                 m = RULE_RES_BODY.matcher(str);

@@ -1,5 +1,6 @@
 package utfpr.edu.bbgp.simul.gui;
 
+import utfpr.edu.argumentation.diagram.ArgumentionFramework;
 import utfpr.edu.bbgp.agent.GoalMemory;
 
 /**
@@ -19,7 +20,7 @@ public class TreeExplanationEntry {
         this.entry = entry;
         this.type = type;
         if(type != CYCLE_TYPE && type != STAGE_TYPE && type != GOAL_TYPE) throw new IllegalArgumentException("Invalid type. Must be one of: TreeExplanationEntry.CYCLE_TYPE, TreeExplanationEntry.STAGE_TYPE or TreeExplanationEntry.GOAL_TYPE.");
-        displayText = (type == GOAL_TYPE ? entry.getGoalFullPredicate() : (type == CYCLE_TYPE ? String.format("Cycle %03d:", entry.getCycle()) : entry.getGoalStage().getStage_name()));
+        displayText = (type == GOAL_TYPE ? entry.toStringSimplified(): (type == CYCLE_TYPE ? String.format("Cycle %03d:", entry.getCycle()) : entry.getGoalStage().getStage_name()));
     }
 
     @Override
@@ -30,5 +31,20 @@ public class TreeExplanationEntry {
     public String getExplanation(){
         if(type == CYCLE_TYPE) return "Select a stage or goal.";
         return entry.explain(type == STAGE_TYPE);
+    }
+
+    public char getType() {
+        return type;
+    }
+    
+    public void showInCluster(ArgumentionFramework cluster) {
+        if(type == CYCLE_TYPE) return;
+        if(type == GOAL_TYPE){
+            entry.showInCluster(cluster);
+            return;
+        }
+        if(type == STAGE_TYPE){
+            entry.showCompleteAFInCluster(cluster);
+        }
     }
 }

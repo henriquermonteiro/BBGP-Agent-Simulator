@@ -132,7 +132,7 @@ public class GoalProcessingManager {
         return g.getGoalBase().getPreference();
     }
 
-    protected boolean isBeliefCompatible(Set<FolFormula> set1, Set<FolFormula> set2) {
+    protected boolean isTerminalCompatible(Set<FolFormula> set1, Set<FolFormula> set2) {
         for (FolFormula f1 : set1) {
             for (FolFormula f2 : set2) {
                 if (f1.equals(f2.complement())) {
@@ -271,6 +271,9 @@ public class GoalProcessingManager {
                         }
                     }
                     if (!skip) {
+                        if(!isPlanContextValid(p, g.getFullPredicate(), null, possibleArguments)){
+                            continue;
+                        }
 
                         // create an argument
                         Argument arg = new Argument(g.getFullPredicate().toString() + "_" + (pos) + "_" + (sub));
@@ -281,6 +284,8 @@ public class GoalProcessingManager {
                         argToSubstitutionMap.put(arg, new HashMap<>());
 
                         attackTheory.add(arg);
+                    }else{
+                        continue;
                     }
                 }
                 for (Map<Variable, Term<?>> mapping : substitutions) {
@@ -326,13 +331,15 @@ public class GoalProcessingManager {
 
                 String[] ax = args[k].getName().split("_");
                 Plan pGK = planLib.get(gK.getGoalBase()).get(Integer.parseInt(ax[ax.length - 2]));
+                String planGKIndex = ax[ax.length - 2];
                 ax = args[j].getName().split("_");
                 Plan pGJ = planLib.get(gJ.getGoalBase()).get(Integer.parseInt(ax[ax.length - 2]));
+                String planJKIndex = ax[ax.length - 2];
 
                 boolean addAttack = false;
                 String attackType = "";
                 // if their context is incompatible add an attack
-                if (!isBeliefCompatible(pGK.getUnifiedSet(gK.getFullPredicate()), pGJ.getUnifiedSet(gJ.getFullPredicate()))) {
+                if (!isTerminalCompatible(pGK.getTerminalCheckSet(gK.getFullPredicate()), pGJ.getTerminalCheckSet(gJ.getFullPredicate()))) {
                     addAttack = true;
                     attackType += "t";
                 }
@@ -348,17 +355,21 @@ public class GoalProcessingManager {
                 }
 
                 if (addAttack) {
+                    int pos = (planGKIndex.equals("s") ? gK.getSugestedPlanIndex() : Integer.parseInt(planGKIndex));
                     double gKPref = (gK.getStage() == GoalStage.Pursuable ? gK.getGoalBase().getPreference() : 1.1);
-                    gKPref -= 0.000001 * gK.getSugestedPlanIndex();
+                    gKPref -= 0.000001 * pos;
+                    pos = (planJKIndex.equals("s") ? gJ.getSugestedPlanIndex() : Integer.parseInt(planJKIndex));
                     double gJPref = (gJ.getStage() == GoalStage.Pursuable ? gJ.getGoalBase().getPreference() : 1.1);
-                    gJPref -= 0.000001 * gJ.getSugestedPlanIndex();
+                    gJPref -= 0.000001 * pos;
 
                     if (gJPref > gKPref) {
                         attackTheory.addAttack(args[j], args[k]);
 
                         try {
-                            theory.addAxiom(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gJ.getGoalTerm().get() + ", " + gK.getGoalTerm().get() + ")"));
-                            theory.addAxiom(new Negation(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gK.getGoalTerm().get() + ", " + gJ.getGoalTerm().get() + ")")));
+                            if (gK.getGoalTerm() != gJ.getGoalTerm()) {
+                                theory.addAxiom(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gJ.getGoalTerm().get() + ", " + gK.getGoalTerm().get() + ")"));
+                                theory.addAxiom(new Negation(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gK.getGoalTerm().get() + ", " + gJ.getGoalTerm().get() + ")")));
+                            }
                         } catch (IOException | ParserException ex) {
                             Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -366,8 +377,10 @@ public class GoalProcessingManager {
                         attackTheory.addAttack(args[k], args[j]);
 
                         try {
-                            theory.addAxiom(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gK.getGoalTerm().get() + ", " + gJ.getGoalTerm().get() + ")"));
-                            theory.addAxiom(new Negation(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gJ.getGoalTerm().get() + ", " + gK.getGoalTerm().get() + ")")));
+                            if (gK.getGoalTerm() != gJ.getGoalTerm()) {
+                                theory.addAxiom(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gK.getGoalTerm().get() + ", " + gJ.getGoalTerm().get() + ")"));
+                                theory.addAxiom(new Negation(fParser.parseFormula(Agent.PREFERRED_STR + "(" + gJ.getGoalTerm().get() + ", " + gK.getGoalTerm().get() + ")")));
+                            }
                         } catch (IOException | ParserException ex) {
                             Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
                         }
@@ -405,22 +418,44 @@ public class GoalProcessingManager {
         // choose extension
         Extension compatibleGoals = getCompatibleGoalsExtension(models, argToGoalMap, argToSubstitutionMap, possibleArguments);
 
+        ArrayList<String> maxUtilList = new ArrayList<>();
+        for (Argument arg : compatibleGoals) {
+            try {
+                theory.addAxiom(fParser.parseFormula(Agent.MAX_UTIL_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+                maxUtilList.add(argToGoalMap.get(arg).getGoalTerm().get());
+
+                String[] ax = arg.getName().split("_");
+
+                argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 2]));
+                argToGoalMap.get(arg).setSugestedSubstitution(argToSubstitutionMap.get(arg));
+
+                if (attackTheory.getAttackers(arg).isEmpty() && attackTheory.getAttacked(arg).isEmpty()) {
+                    theory.addAxiom(fParser.parseFormula(Agent.NOT_HAS_INCOMPATIBILITY_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+                }
+            } catch (IOException | ParserException ex) {
+                Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+
         for (Argument arg : attackTheory) {
             try {
-                if (compatibleGoals.contains(arg)) {
-                    theory.addAxiom(fParser.parseFormula(Agent.MAX_UTIL_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
-
-                    String[] ax = arg.getName().split("_");
-
-                    argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 2]));
-                    argToGoalMap.get(arg).setSugestedSubstitution(argToSubstitutionMap.get(arg));
-
-                    if (attackTheory.getAttackers(arg).isEmpty() && attackTheory.getAttacked(arg).isEmpty()) {
-                        theory.addAxiom(fParser.parseFormula(Agent.NOT_HAS_INCOMPATIBILITY_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+                if (!compatibleGoals.contains(arg)) {
+//                if (compatibleGoals.contains(arg)) {
+//                    theory.addAxiom(fParser.parseFormula(Agent.MAX_UTIL_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+//
+//                    String[] ax = arg.getName().split("_");
+//
+//                    argToGoalMap.get(arg).setSugestedPlanIndex(Integer.parseInt(ax[ax.length - 2]));
+//                    argToGoalMap.get(arg).setSugestedSubstitution(argToSubstitutionMap.get(arg));
+//
+//                    if (attackTheory.getAttackers(arg).isEmpty() && attackTheory.getAttacked(arg).isEmpty()) {
+//                        theory.addAxiom(fParser.parseFormula(Agent.NOT_HAS_INCOMPATIBILITY_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")"));
+//                    }
+//
+//                } else {
+                    if (!maxUtilList.contains(argToGoalMap.get(arg).getGoalTerm().get())) {
+                        theory.addAxiom(new Negation(fParser.parseFormula(Agent.MAX_UTIL_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")")));
                     }
-
-                } else {
-                    theory.addAxiom(new Negation(fParser.parseFormula(Agent.MAX_UTIL_STR + "(" + argToGoalMap.get(arg).getGoalTerm().get() + ")")));
                 }
             } catch (IOException | ParserException ex) {
                 Logger.getLogger(Agent.class.getName()).log(Level.SEVERE, null, ex);
@@ -483,6 +518,7 @@ public class GoalProcessingManager {
 
     protected Collection<Extension> getPossibleBeliefsModels() {
         AspicArgumentationTheoryFol evalTheory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
+        evalTheory.addAll(agent.getAuxiliaryBeliefs());
         evalTheory.addAll(agent.getBeliefs());
         evalTheory.addAll(agent.getStandardRules());
 
@@ -602,6 +638,7 @@ public class GoalProcessingManager {
         GoalManager goals = agent.getGoalManager();
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
+        theory.addAll(agent.getAuxiliaryBeliefs());
         theory.addAll(agent.getBeliefs());
         theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getActivationRules());
@@ -705,6 +742,7 @@ public class GoalProcessingManager {
         GoalManager goals = agent.getGoalManager();
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
+        theory.addAll(agent.getAuxiliaryBeliefs());
         theory.addAll(agent.getBeliefs());
         theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getEvaluationRules());
@@ -815,7 +853,8 @@ public class GoalProcessingManager {
         GoalManager goals = agent.getGoalManager();
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
-        theory.addAll(agent.getBeliefs());
+        theory.addAll(agent.getAuxiliaryBeliefs());
+//        theory.addAll(agent.getBeliefs());
 //        theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getDeliberationRules());
         theory.addAll(competence);
@@ -918,7 +957,8 @@ public class GoalProcessingManager {
         Map<SleepingGoal, ArrayList<Plan>> planLib = agent.getPlanLibrary();
 
         AspicArgumentationTheoryFol theory = new AspicArgumentationTheoryFol(new FolFormulaGenerator()).setCurrentAgent(agent);
-        theory.addAll(agent.getBeliefs());
+        theory.addAll(agent.getAuxiliaryBeliefs());
+//        theory.addAll(agent.getBeliefs());
 //        theory.addAll(agent.getStandardRules());
         theory.addAll(agent.getCheckingRules());
         theory.addAll(competence);

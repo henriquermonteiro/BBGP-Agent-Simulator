@@ -5,11 +5,13 @@ import utfpr.edu.bbgp.agent.manager.GoalManager;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -19,6 +21,7 @@ import net.sf.tweety.arg.aspic.syntax.AspicArgument;
 import net.sf.tweety.arg.aspic.syntax.DefeasibleInferenceRule;
 import net.sf.tweety.arg.aspic.syntax.InferenceRule;
 import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
+import net.sf.tweety.arg.dung.syntax.Argument;
 import net.sf.tweety.commons.ParserException;
 import net.sf.tweety.logics.commons.syntax.Constant;
 import net.sf.tweety.logics.commons.syntax.Predicate;
@@ -33,6 +36,7 @@ import utfpr.edu.bbgp.agent.manager.GoalProcessingManager;
 import utfpr.edu.bbgp.extended.AspicArgumentationTheoryFol;
 import utfpr.edu.bbgp.extended.DefeasibleInferenceRuleWithId;
 import utfpr.edu.bbgp.extended.StrictInferenceRuleWithId;
+import utfpr.edu.bbgp.simul.utils.Tuple;
 
 /**
  *
@@ -44,7 +48,7 @@ public class Agent {
 
     public final static String NOT_HAS_INCOMPATIBILITY_STR = "_not_has_incompatibility";
     public final static String MOST_VALUABLE_STR = "_most_valuable";
-    public final static String CHOOSEN_STR = "_choosen";
+    public final static String CHOOSEN_STR = "_pursued";
     public final static String HAS_PLANS_FOR_STR = "_has_plans_for";
     public final static String SATISFIED_CONTEXT_STR = "_satisfied_context";
     public final static String EXECUTIVE_STR = "_executive";
@@ -72,6 +76,7 @@ public class Agent {
     private Long agentCycle;
 
     // Beliefs
+    private AspicArgumentationTheoryFol auxiliaryBeliefs;
     private AspicArgumentationTheoryFol beliefs;
 
     //Rules
@@ -95,7 +100,8 @@ public class Agent {
     private LinkedList<FolFormula> beliefAdditionQueue;
     private LinkedList<FolFormula> beliefDeletionQueue;
 
-    private ArrayList<GoalMemory> goalMemory;
+//    private ArrayList<GoalMemory> goalMemory;
+    private TreeMap<Long, GoalMemoryPacket> goalMemoryPackets;
 
     private HashMap<String, String> argumentToIdMap;
     private HashMap<String, String> conclusionToIdMap;
@@ -120,6 +126,7 @@ public class Agent {
         agentCycle = 0l;
 
         FolFormulaGenerator rfgen = new FolFormulaGenerator();
+        auxiliaryBeliefs = new AspicArgumentationTheoryFol(rfgen);
         beliefs = new AspicArgumentationTheoryFol(rfgen);
         standardRules = new AspicArgumentationTheoryFol(rfgen);
         activationRules = new AspicArgumentationTheoryFol(rfgen);
@@ -130,7 +137,8 @@ public class Agent {
         beliefAdditionQueue = new LinkedList<>();
         beliefDeletionQueue = new LinkedList<>();
 
-        goalMemory = new ArrayList<>();
+//        goalMemory = new ArrayList<>();
+        goalMemoryPackets = new TreeMap<>();
 
         argumentToIdMap = new HashMap<>();
         conclusionToIdMap = new HashMap<>();
@@ -147,8 +155,8 @@ public class Agent {
             String id = "" + rule.getIdentifier();
             String ruleId = "r_" + id;
             if (id.matches("(-)?[0-9]+") || id.isBlank()) {
-                id = "bel_".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
-                ruleId = "r_be^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                id = "bel_".concat("000".substring(count.toString().length()).concat(count.toString()));
+                ruleId = "r_ep^".concat("000".substring(count.toString().length()).concat(count.toString()));
                 count++;
             }
 
@@ -171,7 +179,7 @@ public class Agent {
         for (InferenceRule rule : standardRules) {
             String id = "" + rule.getIdentifier();
             if (id.matches("(-)?[0-9]+") || id.isBlank()) {
-                id = "R_st^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                id = "r_st^".concat("000".substring(count.toString().length()).concat(count.toString()));
                 count++;
             }
 
@@ -191,10 +199,10 @@ public class Agent {
         count = 1;
         for (InferenceRule rule : activationRules) {
             String id = "" + rule.getIdentifier();
-            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
-                id = "R_ac^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+//            if (id.matches("(-)?[0-9]+") || id.isBlank()) {
+                id = "r_ac^".concat("000".substring(count.toString().length()).concat(count.toString()));
                 count++;
-            }
+//            }
 
             InferenceRule rule2;
 
@@ -213,7 +221,7 @@ public class Agent {
         for (InferenceRule rule : evaluationRules) {
             String id = "" + rule.getIdentifier();
             if (id.matches("(-)?[0-9]+") || id.isBlank()) {
-                id = "R_ev^".concat("000".substring(3 - count.toString().length()).concat(count.toString()));
+                id = "r_ev^".concat("000".substring(count.toString().length()).concat(count.toString()));
                 count++;
             }
 
@@ -316,61 +324,64 @@ public class Agent {
             signature.add(tHolder);
         }
 
-        beliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(GOAL_PLACE_HOLDER_PRED_STR, gHolder.get()), new ArrayList<>()));
-        beliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(TYPE_PLACE_HOLDER_PRED_STR, tHolder.get()), new ArrayList<>()));
+//        beliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(GOAL_PLACE_HOLDER_PRED_STR, gHolder.get()), new ArrayList<>()));
+//        beliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(TYPE_PLACE_HOLDER_PRED_STR, tHolder.get()), new ArrayList<>()));
+        auxiliaryBeliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(GOAL_PLACE_HOLDER_PRED_STR, gHolder.get()), new ArrayList<>()));
+        auxiliaryBeliefs.add(new DefeasibleInferenceRule<>(parseFolFormulaSafeFromForm(TYPE_PLACE_HOLDER_PRED_STR, tHolder.get()), new ArrayList<>()));
 
-        StrictInferenceRuleWithId<FolFormula> rule;
+        StrictInferenceRuleWithId<FolFormula> ruleS;
+        DefeasibleInferenceRuleWithId<FolFormula> ruleD;
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(new FolAtom(notHasIncompatibility, gVar1))));
-        rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
+        ruleD = new DefeasibleInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(NOT_HAS_INCOMPATIBILITY_STR, gVar1.get())));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^001");
-        rule.setExplanationSchema("<goal_name_0> has no incompatibility, so it became chosen.");
+        deliberationRules.add(ruleD);
+        ruleD.setRuleId("r_de^001");
+        ruleD.setExplanationSchema("<goal_name_0> has no incompatibility, so it became pursued.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(preferred, gVar1, gVar2)));
-        rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
+        ruleD = new DefeasibleInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(INCOMPATIBLE_STR, gVar1.get(), gVar2.get(), tVar.get()),
                         parseFolFormulaSafeFromForm(PREFERRED_STR, gVar1.get(), gVar2.get())));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^002");
-        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> is more preferable than <goal_name_1>, <goal_name_0> became chosen.");
+        deliberationRules.add(ruleD);
+        ruleD.setRuleId("r_de^002");
+        ruleD.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> is more preferable than <goal_name_1>, <goal_name_0> became pursued.");
 
-        rule = new StrictInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar2.get())),
+        ruleD = new DefeasibleInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar2.get())),
                 Arrays.asList(parseFolFormulaSafeFromForm(INCOMPATIBLE_STR, gVar1.get(), gVar2.get(), tVar.get()),
                         new Negation(parseFolFormulaSafeFromForm(PREFERRED_STR, gVar2.get(), gVar1.get()))));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^003");
-        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_1> is less preferable than <goal_name_0>, <goal_name_1> did not become chosen.");
+        deliberationRules.add(ruleD);
+        ruleD.setRuleId("r_de^003");
+        ruleD.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_1> is less preferable than <goal_name_0>, <goal_name_1> did not become pursued.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(eqPreferred, gVar1, gVar2)));
-        rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
+        ruleD = new DefeasibleInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(INCOMPATIBLE_STR, gVar1.get(), gVar2.get(), tVar.get()),
                         parseFolFormulaSafeFromForm(EQ_PREFERRED_STR, gVar1.get(), gVar2.get())));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^004");
-        rule.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> and <goal_name_1> have the same preference value, <goal_name_0> [if_accepted?became chosen:would have became chosen if it maximized the utility].");
+        deliberationRules.add(ruleD);
+        ruleD.setRuleId("r_de^004");
+        ruleD.setExplanationSchema("<goal_name_0> and <goal_name_1> have the following conflicts: <term_0_2>. Since <goal_name_0> and <goal_name_1> have the same preference value, <goal_name_0> [if_accepted?became pursued:would have became pursued if it maximized the utility].");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(choosen, gVar1), Arrays.asList((FolFormula) new FolAtom(incompatible, gVar1, gVar2, tVar), (FolFormula) new FolAtom(defends, gVar3, gVar1, gVar2)));
-        rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
+        ruleS = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(MAX_UTIL_STR, gVar1.get())));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^005");
-        rule.setExplanationSchema("Since <goal_name_0> belonged to the set of goals that maximize the utility, it became chosen.");
+        deliberationRules.add(ruleS);
+        ruleS.setRuleId("r_de^005");
+        ruleS.setExplanationSchema("Since <goal_name_0> belonged to the set of goals that maximize the utility, it became pursued.");
 
-        rule = new StrictInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get())),
+        ruleS = new StrictInferenceRuleWithId<>(new Negation(parseFolFormulaSafeFromForm(CHOOSEN_STR, gVar1.get())),
                 Arrays.asList(new Negation(parseFolFormulaSafeFromForm(MAX_UTIL_STR, gVar1.get()))));
-        deliberationRules.add(rule);
-        rule.setRuleId("R_de^006");
-        rule.setExplanationSchema("Since <goal_name_0> did not belong to the set of goals that maximizes the utility, it did not become chosen.");
+        deliberationRules.add(ruleS);
+        ruleS.setRuleId("r_de^006");
+        ruleS.setExplanationSchema("Since <goal_name_0> did not belong to the set of goals that maximizes the utility, it did not become pursued.");
 
 //        rule = new StrictInferenceRuleWithId<>(new FolAtom(executive, gVar1), Arrays.asList(new FolAtom(hasPlansFor, gVar1), new FolAtom(satisfiedContext, gVar1)));
-        rule = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(EXECUTIVE_STR, gVar1.get()),
+        ruleS = new StrictInferenceRuleWithId<>(parseFolFormulaSafeFromForm(EXECUTIVE_STR, gVar1.get()),
                 Arrays.asList(parseFolFormulaSafeFromForm(HAS_PLANS_FOR_STR, gVar1.get()),
                         parseFolFormulaSafeFromForm(SATISFIED_CONTEXT_STR, gVar1.get())));
-        checkingRules.add(rule);
-        rule.setRuleId("R_ch^001");
-        rule.setExplanationSchema("Since the selected plan for <goal_name_0> had its preconditions meet, <goal_name_0> became executible.");
+        checkingRules.add(ruleS);
+        ruleS.setRuleId("r_ch^001");
+        ruleS.setExplanationSchema("Since the selected plan for <goal_name_0> had its preconditions met, <goal_name_0> became executible.");
 
     }
 
@@ -435,7 +446,7 @@ public class Agent {
         }
 
         intention.getGoal().setStage(GoalStage.Completed);
-        goalMemory.add(new GoalMemory(this, agentCycle, intention.getGoal(), true, null, null, null));
+        addGoalMemoryEntry(new GoalMemory(this, agentCycle, intention.getGoal(), true, null, null, null));
         activeIntentions.remove(intention);
     }
 
@@ -529,7 +540,16 @@ public class Agent {
     }
 
     public void addGoalMemoryEntry(GoalMemory entry) {
-        goalMemory.add(entry);
+        if(entry == null) return;
+        
+        GoalMemoryPacket packet = goalMemoryPackets.get(entry.getCycle());
+        
+        if(packet == null){
+            packet = new GoalMemoryPacket(entry.getCycle(), this);
+            goalMemoryPackets.put(entry.getCycle(), packet);
+        }
+        
+        packet.addGoalMemory(entry);
     }
 
     public void addIntention(Intention intention) {
@@ -539,12 +559,20 @@ public class Agent {
     public void cancelAllExecutiveGoals() {
         for (Goal g : goals.getGoalByStage(GoalStage.Executive)) {
             g.setStage(GoalStage.Cancelled);
-            goalMemory.add(new GoalMemory(this, agentCycle, g, true, null, null, null));
+            addGoalMemoryEntry(new GoalMemory(this, agentCycle, g, true, null, null, null));
         }
     }
 
-    public List<GoalMemory> getGoalMemory() {
-        return goalMemory.subList(0, goalMemory.size());
+//    public List<GoalMemory> getGoalMemory_() {
+//        return goalMemory.subList(0, goalMemory.size());
+//    }
+    
+    public GoalMemoryPacket getGoalmemoryPacketForCycle(long cycle){
+        return goalMemoryPackets.get(cycle);
+    }
+    
+    public Collection<GoalMemoryPacket> getGoalMemoryPackets(){
+        return goalMemoryPackets.values();
     }
 
     public String getBeliefBaseToString() {
@@ -683,7 +711,7 @@ public class Agent {
 
             if (!rId.isBlank()) {
                 String size = (argumentToIdMap.size() + 1) + "";
-                String count = "000".substring(3 - size.length()).concat(size);
+                String count = "000".substring(size.length()).concat(size);
                 String[] splitUnderscore = rId.split("_");
                 String type = "un";
                 if (splitUnderscore.length > 1) {
@@ -692,12 +720,12 @@ public class Agent {
                 } else if (!rId.matches("(-)?([0-9]+)")) {
                     type = rId;
                 }
-                id = "A_" + type + "^" + count;
+                id = "a_" + type + "^" + count;
                 argumentToIdMap.put(arg.toString(), id);
             } else {
                 String size = (argumentToIdMap.size() + 1) + "";
-                String count = "000".substring(3 - size.length()).concat(size);
-                id = "A_ins^" + count;;
+                String count = "000".substring(size.length()).concat(size);
+                id = "a_ins^" + count;;
                 argumentToIdMap.put(arg.toString(), id);
             }
         }
@@ -710,7 +738,7 @@ public class Agent {
 
         if (id == null) {
             String size = (conclusionToIdMap.size() + 1) + "";
-            String count = "000".substring(3 - size.length()).concat(size);
+            String count = "000".substring(size.length()).concat(size);
             id = "bel_" + count;
             conclusionToIdMap.put(arg.getConclusion().toString(), id);
         }
@@ -871,6 +899,10 @@ public class Agent {
         return goals;
     }
 
+    public AspicArgumentationTheoryFol getAuxiliaryBeliefs() {
+        return auxiliaryBeliefs;
+    }
+
     public AspicArgumentationTheoryFol getBeliefs() {
         return beliefs;
     }
@@ -897,5 +929,15 @@ public class Agent {
 
     public Constant getgHolder() {
         return gHolder;
+    }
+
+    public Collection<Tuple<String, String>> getArgumentIDAsList() {
+        ArrayList<Tuple<String, String>> list = new ArrayList<>();
+        
+        for(String arg : argumentToIdMap.keySet()){
+            list.add(new Tuple<>(argumentToIdMap.get(arg), arg));
+        }
+        
+        return list;
     }
 }

@@ -15,6 +15,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JComponent;
 import net.sf.tweety.arg.aspic.syntax.AspicArgument;
+import net.sf.tweety.arg.aspic.syntax.InferenceRule;
 import net.sf.tweety.arg.aspic.syntax.StrictInferenceRule;
 import net.sf.tweety.arg.dung.semantics.Extension;
 import net.sf.tweety.arg.dung.syntax.Argument;
@@ -50,6 +51,10 @@ public class GoalMemory {
         this.goal = (Goal) goal.clone();
         this.completeAF = argFramework;
 
+        if (agentCycle == null) {
+            throw new NullPointerException("Agent cycle cannot be null.");
+        }
+
         this.success = false;
         if (testAcceptance) {
             boolean contains = false;
@@ -82,9 +87,13 @@ public class GoalMemory {
     @Override
     public String toString() {
         String ret = (agentCycle < 1000 ? "000".substring(3 - agentCycle.toString().length()) : "").concat(agentCycle.toString());
-        ret = ret.concat(" : ").concat(goal.getFullPredicate().toString()).concat((this.success ? " became " : " did not became ")).concat(goal.getStage().name());
+        ret = ret.concat(" : ").concat(toStringSimplified());
 
         return ret;
+    }
+
+    public String toStringSimplified() {
+        return goal.getFullPredicate().toString().concat((this.success ? " became " : " did not became ")).concat(goal.getStage().name());
     }
 
     public String toStringExtended() {
@@ -105,50 +114,71 @@ public class GoalMemory {
         return agentCycle;
     }
 
-    protected void recursiveAddArgument(Deque<Argument> stack, Argument argument) {
+    protected void recursiveAddArgument(Deque<AspicArgument> stack, AspicArgument argument) {
         if (stack != null && argument != null) {
-            stack.push(argument);
+            String topRuleStr = argument.getTopRule().toString();
+
+            boolean add = true;
+            for (AspicArgument stackElm : stack) {
+                if (stackElm.getTopRule().toString().equals(topRuleStr)) {
+                    add = false;
+                    break;
+                }
+            }
+
+            if (add) {
+                stack.push(argument);
+            }
 
             if (argument instanceof AspicArgument) {
                 AspicArgument<FolFormula> aspicArgument = (AspicArgument) argument;
 
-                for (Argument subArg : aspicArgument.getDirectSubs()) {
+                for (AspicArgument subArg : aspicArgument.getDirectSubs()) {
                     recursiveAddArgument(stack, subArg);
                 }
             }
         }
     }
 
-    protected Collection<Argument> getArgumentsStackForExplaining(boolean complete) {
-        Deque<Argument> stack = new LinkedList<>();
-        Queue<Argument> queueOfAttackers = new LinkedList<>();
-        Queue<Argument> subQueueOfAttackers = new LinkedList<>();
+    protected Collection<AspicArgument> getArgumentsStackForExplaining(boolean complete) {
+        Deque<AspicArgument> stack = new LinkedList<>();
+        Queue<AspicArgument> queueOfAttackers = new LinkedList<>();
+        Queue<AspicArgument> subQueueOfAttackers = new LinkedList<>();
 
-        if (support != null) {
-            for (Argument arg : support) {
-                recursiveAddArgument(stack, arg);
+        Collection<Argument> target1 = (support != null ? support : relevantArguments);
+//        Collection<Argument> target1 = relevantArguments;
 
-                for (Argument attacker : completeAF.getAttacked(arg)) {
-                    queueOfAttackers.offer(attacker);
-                }
-            }
-        }else{
-            for (Argument arg : relevantArguments) {
-                recursiveAddArgument(stack, arg);
+        for (Argument arg : target1) {
+            recursiveAddArgument(stack, (AspicArgument) arg);
 
-                for (Argument attacker : completeAF.getAttacked(arg)) {
-                    queueOfAttackers.offer(attacker);
+            Deque<AspicArgument> argQueue = new LinkedList<>();
+            recursiveAddArgument(argQueue, (AspicArgument) arg);
+
+            while (!argQueue.isEmpty()) {
+                Argument fromQueue = argQueue.pop();
+                HashSet<Argument> neighbours = new HashSet<>(completeAF.getAttackers(fromQueue));
+                neighbours.addAll(completeAF.getAttacked(fromQueue));
+//                for (Argument attacker : completeAF.getAttackers(fromQueue)) {
+                for (Argument attacker : neighbours) {
+                    if (!queueOfAttackers.contains(attacker)) {
+                        queueOfAttackers.offer((AspicArgument) attacker);
+                    }
                 }
             }
         }
 
         while (!queueOfAttackers.isEmpty()) {
             Argument arg = queueOfAttackers.poll();
-            recursiveAddArgument(stack, arg);
+            recursiveAddArgument(stack, (AspicArgument) arg);
 
-            for (Argument attacker : completeAF.getAttackers(arg)) {
+            HashSet<Argument> neighbours = new HashSet<>(completeAF.getAttackers(arg));
+            neighbours.addAll(completeAF.getAttacked(arg));
+//            for (Argument attacker : completeAF.getAttackers(arg)) {
+            for (Argument attacker : neighbours) {
                 if (!stack.contains(attacker)) {
-                    subQueueOfAttackers.offer(attacker);
+                    if (!subQueueOfAttackers.contains(attacker)) {
+                        subQueueOfAttackers.offer((AspicArgument) attacker);
+                    }
                 }
             }
 
@@ -163,15 +193,45 @@ public class GoalMemory {
                     continue;
                 }
 
-                recursiveAddArgument(stack, arg);
+                recursiveAddArgument(stack, (AspicArgument) arg);
 
-                for (Argument attacker : completeAF.getAttacked(arg)) {
-                    queueOfAttackers.offer(attacker);
+                HashSet<Argument> neighbours = new HashSet<>(completeAF.getAttackers(arg));
+                neighbours.addAll(completeAF.getAttacked(arg));
+//                for (Argument attacker : completeAF.getAttackers(arg)) {
+                for (Argument attacker : neighbours) {
+                    queueOfAttackers.offer((AspicArgument) attacker);
                 }
             }
         }
 
         return stack;
+    }
+
+    protected List<AspicArgument<FolFormula>> orderSubArgumentsByRule(AspicArgument<FolFormula> argument) {
+        ArrayList<AspicArgument<FolFormula>> retList = new ArrayList<>();
+
+        InferenceRule<FolFormula> topRule = argument.getTopRule();
+
+        for (FolFormula prem : topRule.getPremise()) {
+            boolean found = false;
+            for (AspicArgument<FolFormula> subArg : argument.getDirectSubs()) {
+                if (!prem.equals(subArg.getConclusion())) {
+                    continue;
+                }
+                if (retList.contains(subArg)) {
+                    continue;
+                }
+
+                retList.add(subArg);
+                found = true;
+                break;
+            }
+            if (!found) {
+                return new ArrayList<>();
+            }
+        }
+
+        return retList;
     }
 
     public String explain(boolean complete) {
@@ -182,7 +242,7 @@ public class GoalMemory {
         String composition = String.format("Cycle: %03d", this.agentCycle) + (complete ? "" : " (partial for " + goal.getFullPredicate().toString() + ")") + "\n      » ";
 
 //        Collection<Argument> target = (complete ? completeAF : relevantArguments);
-        Collection<Argument> target = getArgumentsStackForExplaining(complete);
+        Collection<AspicArgument> target = getArgumentsStackForExplaining(complete);
 
         if (target.isEmpty() && !complete && goal.getStage() == GoalStage.Pursuable) {
             String goal_name = goal.getFullPredicate().toString().replaceAll(goal.getGoalTerm().get(), "").replaceAll(",\\s*,", "").replaceAll("\\(\\s*,", "(").replaceAll(",\\s\\)", ")").replaceAll("\\s+", " ");
@@ -195,7 +255,7 @@ public class GoalMemory {
         Matcher m;
 
         for (Argument arg : target) {
-            if (arg instanceof AspicArgument) {
+//            if (arg instanceof AspicArgument) {
                 AspicArgument<FolFormula> aArg = (AspicArgument<FolFormula>) arg;
 
                 if (!(aArg.getTopRule() instanceof RuleWithIdInterface)) {
@@ -217,7 +277,7 @@ public class GoalMemory {
 
                 ArrayList<Term> goalTerms = new ArrayList<>();
 
-                for (AspicArgument<FolFormula> subA : aArg.getDirectSubs()) {
+                for (AspicArgument<FolFormula> subA : orderSubArgumentsByRule(aArg)) {
                     FolFormula formula = subA.getConclusion();
                     FolAtom atom = null;
                     while (atom == null) {
@@ -292,7 +352,7 @@ public class GoalMemory {
                             continue;
                         } else {
                             skip = true;
-                            for (GoalMemory gM : agent.getGoalMemory()) {
+                            for (GoalMemory gM : agent.getGoalmemoryPacketForCycle(agentCycle).getAllGoalMemory()) {
                                 if (gM.agentCycle == agentCycle) {
                                     if (FolFormulaUtils.equalsWithSubstitution(gM.goal.getFullPredicate(), atom, agent.getgHolder())) {
                                         skip = false;
@@ -309,14 +369,14 @@ public class GoalMemory {
                                 break;
                             }
                         }
-                        
+
                         continue;
                     }
 
                     Goal g = agent.getGoalForID((String) t.get());
 
                     String fullPredicate = g.getFullPredicate().toString();
-                    fullPredicate = fullPredicate.replaceAll(g.getGoalTerm().get(), "").replaceAll(",\\s*,", "").replaceAll("\\(\\s*,", "(").replaceAll(",\\s\\)", ")").replaceAll("\\s+", " ");
+                    fullPredicate = fullPredicate.replaceAll(g.getGoalTerm().get(), "").replaceAll(",\\s*,", ",").replaceAll("\\(\\s*,", "(").replaceAll(",\\s\\)", ")").replaceAll("\\s+", " ");
 
                     goals.add(fullPredicate);
                 }
@@ -325,30 +385,6 @@ public class GoalMemory {
                     continue;
                 }
 
-//                String xId = "";
-//                String yId = "";
-//                String conflict = "";
-//                Goal g1, g2;
-//                
-//                for(AspicArgument<FolFormula> subA : aArg.getDirectSubs()) {
-//                    FolFormula conclusion = subA.getConclusion();
-//                    if(conclusion instanceof Negation) conclusion = ((Negation)conclusion).getFormula();
-//
-//                    if(conclusion instanceof FolAtom){
-//                        if(((FolAtom)conclusion).getPredicate().getName().equals(Agent.INCOMPATIBLE_STR)){
-//                            Iterator<Term<?>> iterator = ((FolAtom)conclusion).getArguments().iterator();
-//                            xId = (String) iterator.next().get();
-//                            yId = (String) iterator.next().get();
-//                            conflict = (String) iterator.next().get();
-//                        } else if(((FolAtom)conclusion).getPredicate().getName().equals(Agent.MAX_UTIL_STR)){
-//                            Iterator<Term<?>> iterator = ((FolAtom)conclusion).getArguments().iterator();
-//                            xId = (String) iterator.next().get();
-//                        }  else if(((FolAtom)conclusion).getPredicate().getName().equals(Agent.NOT_HAS_INCOMPATIBILITY_STR)){
-//                            Iterator<Term<?>> iterator = ((FolAtom)conclusion).getArguments().iterator();
-//                            xId = (String) iterator.next().get();
-//                        } 
-//                    }
-//                }
                 if (!composition.isBlank() && !composition.endsWith("\n      » ")) {
                     composition = composition.concat("\n      » ");
                 }
@@ -378,7 +414,7 @@ public class GoalMemory {
                         if (found.startsWith("belief_name")) {
                             pattern2 = pattern2.replaceFirst(replace, beliefsNames.get(Integer.parseInt(split[2])));
                         } else if (found.startsWith("belief")) {
-                            pattern2 = pattern2.replaceFirst(replace, beliefs.get(Integer.parseInt(split[2])));
+                            pattern2 = pattern2.replaceFirst(replace, beliefs.get(Integer.parseInt(split[1])));
                         }
                         if (found.startsWith("term_conc")) {
                             pattern2 = pattern2.replaceFirst(replace, conclusionTerms.get(Integer.parseInt(split[2])));
@@ -397,45 +433,18 @@ public class GoalMemory {
                     }
                 }
 
+                pattern2 = pattern2.trim();
+                if (pattern2.startsWith("{")) {
+                    pattern2 = pattern2.substring(1).trim();
+                }
+                if (pattern2.endsWith("}")) {
+                    pattern2 = pattern2.substring(0, pattern2.length() - 1).trim();
+                }
+
                 if (!composition.contains(pattern2) || usesGoal) {
                     composition = composition.concat(pattern2);
                 }
-//                switch(topRule.getRuleId()){
-//                    case "R_de^001":
-//                        pattern = "<name_x> has no incompatibility, so it became pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()));
-//                        break;
-//                    case "R_de^002":
-//                        pattern = "<name_x> and <name_y> have the following conflicts: <conflict>. Since <name_x> is more preferable than <name_y>, <name_x> became pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        g2 = agent.getGoalForID(yId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()).replaceAll("<name_y>", g2.getFullPredicate().toString()).replaceAll("<conflict>", conflict));
-//                        break;
-//                    case "R_de^003":
-//                        pattern = "<name_x> and <name_y> have the following conflicts: <conflict>. Since <name_y> is less preferable than <name_x>, <name_y> did not become pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        g2 = agent.getGoalForID(yId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()).replaceAll("<name_y>", g2.getFullPredicate().toString()).replaceAll("<conflict>", conflict));
-//                        break;
-//                    case "R_de^004":
-//                        pattern = "<name_x> and <name_y> have the following conflicts: <conflict>. Since <name_x> and <name_y> have the same preference value, <name_x> became pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        g2 = agent.getGoalForID(yId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()).replaceAll("<name_y>", g2.getFullPredicate().toString()).replaceAll("<conflict>", conflict));
-//                        break;
-//                    case "R_de^005":
-//                        pattern = "Since <name_x> belonged to the set of goals that maximize the utility, it became pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()));
-//                        break;
-//                    case "R_de^006":
-//                        pattern = "Since <name_x> did not belong to the set of goals that maximizes the utility, it did not become pursued.";
-//                        g1 = agent.getGoalForID(xId);
-//                        composition = composition.concat(pattern.replaceAll("<name_x>", g1.getFullPredicate().toString()));
-//                        break;
-//                }
-            }
+//            }
         }
 
         return composition;
@@ -489,11 +498,30 @@ public class GoalMemory {
             HashSet<Argument> auxSet = new HashSet<>();
             for (Argument inSet : queue) {
                 AspicArgument<FolFormula> argInSet = (AspicArgument<FolFormula>) inSet;
+//                HashSet<Argument> conflictSet = new HashSet<>(argFramework.getAttacked(inSet));
+//                conflictSet.addAll(argFramework.getAttackers(inSet));
                 for (Argument attacker : argFramework.getAttacked(inSet)) {
                     AspicArgument<FolFormula> argAtt = (AspicArgument<FolFormula>) attacker;
 
                     if (argAtt.getConclusion().equals((FolFormula) argInSet.getConclusion().complement())) {
                         attackSet.add(new Tuple<>(inSet, attacker));
+                    }
+
+                    if (!set.contains(attacker)) {
+                        auxSet.add(attacker);
+//                        acceptedArguments.put(attacker, selectedExt.contains(attacker));
+
+                        for (Argument a : argAtt.getAllSubs()) {
+                            auxSet.add(a);
+//                            acceptedArguments.put(a, selectedExt.contains(a));
+                        }
+                    }
+                }
+                for (Argument attacker : argFramework.getAttackers(inSet)) {
+                    AspicArgument<FolFormula> argAtt = (AspicArgument<FolFormula>) attacker;
+
+                    if (argAtt.getConclusion().equals((FolFormula) argInSet.getConclusion().complement())) {
+                        attackSet.add(new Tuple<>(attacker, inSet));
                     }
 
                     if (!set.contains(attacker)) {
@@ -515,9 +543,93 @@ public class GoalMemory {
         return set;
     }
 
-    private HashMap<Object, JComponent> elementsToComponentMap = new HashMap<>();
+    private HashMap<Object, utfpr.edu.argumentation.diagram.Argument> elementsToComponentMap = new HashMap<>();
+
+    public void showCompleteAFInCluster(ArgumentionFramework cluster) {
+        if (cluster == null) {
+            return;
+        }
+
+        cluster.clear();
+
+        elementsToComponentMap.clear();
+
+        HashSet<Tuple<Argument, Argument>> attacks = new HashSet<>();
+
+        for (Argument arg : completeAF) {
+            boolean skip = false;
+
+            AspicArgument<FolFormula> argumentFol = (AspicArgument<FolFormula>) arg;
+
+            if (argumentFol.getConclusion() instanceof FolAtom) {
+                FolAtom conc = (FolAtom) argumentFol.getConclusion();
+
+                if (conc.getPredicate().getName().equals(Agent.GOAL_PLACE_HOLDER_PRED_STR)) {
+                    continue;
+                }
+                if (conc.getPredicate().getName().equals(Agent.TYPE_PLACE_HOLDER_PRED_STR)) {
+                    continue;
+                }
+            }
+
+            for (Argument attacked : completeAF.getAttacked(arg)) {
+                AspicArgument<FolFormula> argAtt = (AspicArgument<FolFormula>) attacked;
+
+                if (argAtt.getConclusion().equals((FolFormula) argumentFol.getConclusion().complement())) {
+                    attacks.add(new Tuple<>(arg, attacked));
+                }
+            }
+
+            for (Argument attacker : completeAF.getAttackers(arg)) {
+                AspicArgument<FolFormula> argAtt = (AspicArgument<FolFormula>) attacker;
+
+                if (argAtt.getConclusion().equals((FolFormula) argumentFol.getConclusion().complement())) {
+                    attacks.add(new Tuple<>(attacker, arg));
+                }
+            }
+
+            for (Argument arg2 : completeAF) {
+                AspicArgument<FolFormula> argumentFol2 = (AspicArgument<FolFormula>) arg2;
+
+                if (argumentFol.isSubArgumentOf(argumentFol2) && argumentFol != argumentFol2) {
+                    skip = true;
+                    break;
+                }
+            }
+
+            if (skip) {
+                continue;
+            }
+
+            utfpr.edu.argumentation.diagram.Argument argument = showArgumentInCluster(argumentFol, cluster, false, acceptedArguments.get(arg));
+            elementsToComponentMap.put(arg, argument);
+            cluster.addArgument(argument);
+        }
+
+        for (Tuple<Argument, Argument> attck : attacks) {
+            JComponent attacker = elementsToComponentMap.get(attck.getT());
+            JComponent attacked = elementsToComponentMap.get(attck.getU());
+
+            if (attacker == null) {
+                continue;
+            }
+            if (attacked == null) {
+                continue;
+            }
+
+            cluster.addAttack((utfpr.edu.argumentation.diagram.Argument) attacker, (utfpr.edu.argumentation.diagram.Argument) attacked, false);
+        }
+
+        cluster.repositionComponents();
+        cluster.revalidate();
+        cluster.repaint();
+    }
 
     public void showInCluster(ArgumentionFramework cluster) {
+        showInCluster(cluster, true);
+    }
+
+    public void showInCluster(ArgumentionFramework cluster, boolean checkFocus) {
         if (cluster == null) {
             return;
         }
@@ -545,7 +657,7 @@ public class GoalMemory {
             }
 
             boolean isFocus = false;
-            if (support != null) {
+            if (support != null && checkFocus) {
                 isFocus = support.contains(arg);
             }
 
@@ -577,18 +689,37 @@ public class GoalMemory {
         int type = (accepted ? 0 : 2) + (isFocus ? 1 : 0);
         boolean isStrict = arg.getTopRule() instanceof StrictInferenceRule;
         String label = agent.getArgumentConclusionID(arg);
-        String tooltip = arg.getConclusion().toString();
-        String ruleTooltip = arg.getTopRule().toString();
+        String tooltip = arg.getConclusion().toString().replaceAll("\\s*" + Agent.GOAL_PLACE_HOLDER_CONST_STR + "\\s*", "").replaceAll(",,", ",").replaceAll("\\(\\s*,", "(").replaceAll(",\\s\\)", ")").replaceAll("\\s+", " ");
+        String ruleTooltip = arg.getTopRule().toString().replaceAll("\\s*" + Agent.GOAL_PLACE_HOLDER_CONST_STR + "\\s*", "").replaceAll(",,", ",").replaceAll("\\(\\s*,", "(").replaceAll(",\\s\\)", ")").replaceAll("\\s+", " ");
+
+        label = "<html><p style=\"font-size:85%\"><font color=#000000 >" + tooltip + "&nbsp;&nbsp;</font></p></html>";
+//        ruleTooltip = "<html><p style=\"font-size:85%\"><font color=#000000 >" + ruleTooltip.replaceAll("^([a-zA-Z0-9]*)(_([a-zA-Z0-9]*))?(\\^([a-zA-Z0-9]*))?", "$1<sub>$3</sub><sup>$5</sup>") + "&nbsp;&nbsp;</font></p></html>";
+        tooltip = null;
 
         Atom conclusion = new Atom(label, tooltip, isStrict, type, cluster);
 
         ArrayList<utfpr.edu.argumentation.diagram.Argument> subArgs = new ArrayList<>();
         for (AspicArgument<FolFormula> subA : arg.getDirectSubs()) {
             utfpr.edu.argumentation.diagram.Argument subArg = showArgumentInCluster(subA, cluster, isFocus, acceptedArguments.get(subA));
+
+            if (elementsToComponentMap.get(subA) != null) {
+                cluster.removeArgument(elementsToComponentMap.get(subA));
+            }
+
             elementsToComponentMap.put(subA, subArg);
             subArgs.add(subArg);
         }
-        return new utfpr.edu.argumentation.diagram.Argument(conclusion, type, cluster, agent.getArgumentID(arg), agent.getRuleID(arg), ruleTooltip, agent.isRuleStrict(arg), subArgs.toArray(new utfpr.edu.argumentation.diagram.Argument[]{}));
+
+        String argId = agent.getArgumentID(arg);
+        argId = "<html><p style=\"font-size:95%\"><font color=#000000 >" + argId.replaceAll("^([a-zA-Z0-9]*)(_([a-zA-Z0-9]*))?(\\^([a-zA-Z0-9]*))?", "$1<sub>$3</sub><sup>$5</sup>") + "&nbsp;&nbsp;</font></p></html>";
+        String ruleId = agent.getRuleID(arg);
+        ruleId = "<html><p style=\"font-size:95%\"><font color=#000000 >" + ruleId.replaceAll("^([a-zA-Z0-9]*)(_([a-zA-Z0-9]*))?(\\^([a-zA-Z0-9]*))?", "$1<sub>$3</sub><sup>$5</sup>") + "&nbsp;&nbsp;</font></p></html>";
+
+        if (subArgs.isEmpty()) {
+            ruleId = null;
+        }
+
+        return new utfpr.edu.argumentation.diagram.Argument(conclusion, type, cluster, argId, ruleId, ruleTooltip, agent.isRuleStrict(arg), subArgs.toArray(new utfpr.edu.argumentation.diagram.Argument[]{}));
     }
 
     public GoalStage getGoalStage() {

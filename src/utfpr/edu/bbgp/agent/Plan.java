@@ -9,10 +9,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import net.sf.tweety.logics.commons.syntax.interfaces.Term;
 import net.sf.tweety.logics.fol.syntax.FolAtom;
 import net.sf.tweety.logics.fol.syntax.FolFormula;
+import net.sf.tweety.logics.fol.syntax.Negation;
 import utfpr.edu.bbgp.extended.ResourceFolFormula;
 
 /**
@@ -58,6 +60,17 @@ public class Plan {
 
     public List<PerceptionEntry> getPostConditions() {
         return postConditions;
+    }
+    
+    public Set<FolFormula> getTerminalCheckSet(FolAtom fullPredicate){
+        Set<FolFormula> set = getUnifiedSet(fullPredicate);
+        Map<FolFormula, Boolean> postCond = getUnifiedBeliefPostConditionsSet(fullPredicate);
+        
+        for(FolFormula postC : postCond.keySet()){
+            set.add((postCond.get(postC) ? postC : new Negation(postC)));
+        }
+        
+        return set;
     }
 
     public Set<FolFormula> getUnifiedSet(FolAtom fullPredicate) {

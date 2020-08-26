@@ -20,11 +20,10 @@ import java.io.IOException;
 import java.text.NumberFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Objects;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javax.swing.DefaultListModel;
-import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.swing.JButton;
 import javax.swing.JFileChooser;
@@ -45,17 +44,16 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.JTree;
 import javax.swing.ListModel;
-import javax.swing.ListSelectionModel;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeCellRenderer;
 import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
 import javax.swing.tree.TreeSelectionModel;
 import utfpr.edu.bbgp.agent.Agent;
 import utfpr.edu.bbgp.agent.GoalMemory;
-import utfpr.edu.bbgp.agent.GoalStage;
+import utfpr.edu.bbgp.agent.GoalMemoryPacket;
 import utfpr.edu.bbgp.agent.parser.PerceptionsParser;
+import utfpr.edu.bbgp.simul.utils.Tuple;
 
 /**
  *
@@ -74,17 +72,20 @@ public class MainControl extends JFrame {
     private JTextPane intentions;
 
     private JList<PerceptionEntry> scriptQueue;
-    private JList<GoalMemory> goalList;
+//    private JList<GoalMemory> goalList;
+    private JTree goalsTree;
+    private DefaultMutableTreeNode goalsTreeRoot;
     private ArgumentionFramework cluster;
-    private JTree tree;
-    private DefaultMutableTreeNode treeRoot;
+//    private Boolean clusterLocked = false;
+    private JTree explanationsTree;
+    private DefaultMutableTreeNode explanationsTreeRoot;
     private JTextArea explanationArea;
 
     private JSplitPane splitPanelKB;
     private JSplitPane splitPanelGM;
     private JSplitPane splitPanelExplaination;
 
-    private JTextPane output;
+//    private JTextPane output;
 
     private Boolean running = false;
 
@@ -182,8 +183,8 @@ public class MainControl extends JFrame {
         beliefBase = new JTextPane();
         intentions = new JTextPane();
         intentions.setPreferredSize(new Dimension(200, 300));
-        output = new JTextPane();
-        output.setPreferredSize(new Dimension(400, 100));
+//        output = new JTextPane();
+//        output.setPreferredSize(new Dimension(400, 100));
 
         splitPanelKB = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         splitPanelKB.setLeftComponent(new JScrollPane(scriptQueue) {
@@ -212,7 +213,7 @@ public class MainControl extends JFrame {
         GridBagConstraints gridBagConstraints = new GridBagConstraints();
         gridBagConstraints.gridx = 0;
         gridBagConstraints.gridy = 0;
-        gridBagConstraints.insets = new Insets(2, 2, 2, 2);
+        gridBagConstraints.insets = new Insets(2, 32, 2, 2);
         gridBagConstraints.anchor = GridBagConstraints.CENTER;
 
         JPanel cPanel = new JPanel(gBLayout);
@@ -224,40 +225,107 @@ public class MainControl extends JFrame {
         afPanel.add(new JScrollPane(cPanel), BorderLayout.CENTER);
         afPanel.setMinimumSize(new Dimension(0, 0));
 
-        goalList = new JList<>(new DefaultListModel<>());
-        goalList.setCellRenderer(new GoalMemoryListCellRenderer());
-        goalList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+//        goalList = new JList<>(new DefaultListModel<>());
+//        goalList.setCellRenderer(new GoalMemoryListCellRenderer());
+//        goalList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+//
+//        goalList.addListSelectionListener((event) -> {
+//            if (event.getFirstIndex() < 0) {
+//                return;
+//            }
+//
+//            GoalMemory gM = goalList.getSelectedValue();
+//            if (gM != null) {
+//                gM.showInCluster(cluster);
+//            }
+//
+//        });
 
-        goalList.addListSelectionListener((event) -> {
-            if (event.getFirstIndex() < 0) {
-                return;
-            }
-
-            GoalMemory gM = goalList.getSelectedValue();
-            if (gM != null) {
-                gM.showInCluster(cluster);
-            }
-
-        });
-
-        goalList.setSelectedIndex(0);
+//        goalList.setSelectedIndex(0);
 
         splitPanelGM = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
-        splitPanelGM.setLeftComponent(new JScrollPane(goalList) {
+//        splitPanelGM.setLeftComponent(new JScrollPane(goalList) {
+//            @Override
+//            public Dimension getMinimumSize() {
+//                return new Dimension(0, 0);
+//            }
+//        });
+        splitPanelGM.setRightComponent(afPanel);
+
+        goalsTreeRoot = new DefaultMutableTreeNode("root");
+        goalsTree = new JTree(goalsTreeRoot);
+        
+        GoalMemoryTreeCellRenderer treeRenderer = new GoalMemoryTreeCellRenderer();
+        treeRenderer.setLeafIcon(null);
+        treeRenderer.setClosedIcon(null);
+        treeRenderer.setOpenIcon(null);
+        
+        goalsTree.setCellRenderer(treeRenderer);
+        goalsTree.setRootVisible(false);
+        goalsTree.setShowsRootHandles(true);
+        goalsTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        goalsTree.addTreeSelectionListener((arg0) -> {
+            if (arg0.getNewLeadSelectionPath() == null) {
+                return;
+            }
+
+            TreeExplanationEntry entry = (TreeExplanationEntry) ((DefaultMutableTreeNode) arg0.getNewLeadSelectionPath().getLastPathComponent()).getUserObject();
+
+            if (entry != null) {
+//                new Thread(){
+//                    @Override
+//                    public void run() {
+//                        int tries = 0;
+//                        synchronized(this){
+//                            while(clusterLocked){
+//                                try {
+//                                    tries++;
+//                                    wait(100);
+//                                } catch (InterruptedException ex) {
+//                                }
+//
+//                                if(tries > 10){
+//                                    return;
+//                                }
+//                            }
+//                            clusterLocked = true;
+                            cluster.clear();
+                            entry.showInCluster(cluster);
+                            
+                            System.out.println(entry.toString());
+                            
+                            Collection<Tuple<String, String>> list = aThread.getAgent().getArgumentIDAsList();
+                            for(Tuple<String, String> t : list){
+                                System.out.println("\t - " + t.getT() + " : " + t.getU());
+                            }
+//                            clusterLocked = false;
+//                        }
+//                    }
+//                }.start();
+            }
+        });
+        
+        splitPanelGM.setLeftComponent(new JScrollPane(goalsTree) {
             @Override
             public Dimension getMinimumSize() {
                 return new Dimension(0, 0);
             }
         });
-        splitPanelGM.setRightComponent(afPanel);
-
-        treeRoot = new DefaultMutableTreeNode("root");
-        tree = new JTree(treeRoot);
-        tree.setRootVisible(false);
-        tree.setShowsRootHandles(true);
-        tree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
-        tree.addTreeSelectionListener((arg0) -> {
+        
+        explanationsTreeRoot = new DefaultMutableTreeNode("root");
+        explanationsTree = new JTree(explanationsTreeRoot);
+        
+        treeRenderer = new GoalMemoryTreeCellRenderer();
+        treeRenderer.setLeafIcon(null);
+        treeRenderer.setClosedIcon(null);
+        treeRenderer.setOpenIcon(null);
+        
+        explanationsTree.setCellRenderer(treeRenderer);
+        explanationsTree.setRootVisible(false);
+        explanationsTree.setShowsRootHandles(true);
+        explanationsTree.getSelectionModel().setSelectionMode(TreeSelectionModel.SINGLE_TREE_SELECTION);
+        explanationsTree.addTreeSelectionListener((arg0) -> {
             if (arg0.getNewLeadSelectionPath() == null) {
                 return;
             }
@@ -267,19 +335,19 @@ public class MainControl extends JFrame {
             explanationArea.setText(entry.getExplanation());
         });
 
-        DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
-        Icon noIcon = null;
-        renderer.setLeafIcon(noIcon);
-        renderer.setClosedIcon(noIcon);
-        renderer.setOpenIcon(noIcon);
-        tree.setCellRenderer(renderer);
+//        DefaultTreeCellRenderer renderer = new DefaultTreeCellRenderer();
+//        Icon noIcon = null;
+//        renderer.setLeafIcon(noIcon);
+//        renderer.setClosedIcon(noIcon);
+//        renderer.setOpenIcon(noIcon);
+//        explanationsTree.setCellRenderer(renderer);
 
         explanationArea = new JTextArea();
         explanationArea.setLineWrap(true);
 
         splitPanelExplaination = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, true);
 
-        splitPanelExplaination.setLeftComponent(new JScrollPane(tree) {
+        splitPanelExplaination.setLeftComponent(new JScrollPane(explanationsTree) {
             @Override
             public Dimension getMinimumSize() {
                 return new Dimension(0, 0);
@@ -320,7 +388,7 @@ public class MainControl extends JFrame {
                     }
 
                     aThread = new AgentThread(AgentGenerator.getAgentFromFolBase(new FileReader(filePath)), this);
-                    ((DefaultListModel) goalList.getModel()).clear();
+//                    ((DefaultListModel) goalList.getModel()).clear();
                     updateInfo(aThread.getAgent());
                     play_pause.setEnabled(true);
 
@@ -398,7 +466,7 @@ public class MainControl extends JFrame {
         if (running) {
             running = false;
             play_pause.setIcon(playI);
-
+            
             if (aThread != null) {
                 aThread = new AgentThread(aThread.getAgent(), this);
             }
@@ -458,50 +526,53 @@ public class MainControl extends JFrame {
         scriptQueue.revalidate();
         scriptQueue.repaint();
 
-        String gMemorytToString = "";
+//        String gMemorytToString = "";
 
-        ArrayList<GoalMemory> pursuableEntries = new ArrayList<>();
+        ArrayList<GoalMemory> memoryEntries = new ArrayList<>();
         ArrayList<Long> pursuableEntriesCycles = new ArrayList<>();
-        DefaultListModel model = ((DefaultListModel) goalList.getModel());
+//        DefaultListModel model = ((DefaultListModel) goalList.getModel());
         boolean changed = false;
-        for (GoalMemory m : agent.getGoalMemory()) {
-            gMemorytToString += m.toString() + "\n\n";
+        for(GoalMemoryPacket mP : agent.getGoalMemoryPackets()){
+//            for (GoalMemory m : agent.getGoalMemory()) {
+            for (GoalMemory m : mP.getAllGoalMemory()) {
+//                gMemorytToString += m.toString() + "\n\n";
 
-            if (!model.contains(m)) {
-                model.add(model.size(), m);
-                changed = true;
+//                if (!model.contains(m)) {
+//                    model.add(model.size(), m);
+//                    changed = true;
+//                }
+
+    //            if (m.getGoalStage() == GoalStage.Choosen) {
+                memoryEntries.add(m);
+                if (!pursuableEntriesCycles.contains(m.getCycle())) {
+                    pursuableEntriesCycles.add(m.getCycle());
+
+                }
+    //            }
             }
-
-//            if (m.getGoalStage() == GoalStage.Choosen) {
-            pursuableEntries.add(m);
-            if (!pursuableEntriesCycles.contains(m.getCycle())) {
-                pursuableEntriesCycles.add(m.getCycle());
-
-            }
-//            }
         }
 
-        if (changed) {
-            int pos = splitPanelGM.getInsets().left + goalList.getPreferredSize().width;
-            Insets scrollInsets = ((JScrollPane) splitPanelGM.getLeftComponent()).getInsets();
-            pos += scrollInsets.left + scrollInsets.right;
-            JScrollBar vBar = ((JScrollPane) splitPanelGM.getLeftComponent()).getVerticalScrollBar();
-            pos += (vBar.isVisible() ? vBar.getWidth() : 0);
-            splitPanelGM.setDividerLocation(pos);
-        }
+//        if (changed) {
+//            int pos = splitPanelGM.getInsets().left + goalList.getPreferredSize().width;
+//            Insets scrollInsets = ((JScrollPane) splitPanelGM.getLeftComponent()).getInsets();
+//            pos += scrollInsets.left + scrollInsets.right;
+//            JScrollBar vBar = ((JScrollPane) splitPanelGM.getLeftComponent()).getVerticalScrollBar();
+//            pos += (vBar.isVisible() ? vBar.getWidth() : 0);
+//            splitPanelGM.setDividerLocation(pos);
+//        }
+//
+//        if (goalList.getSelectedIndex() < 0) {
+//            goalList.setSelectedIndex(0);
+//        }
 
-        if (goalList.getSelectedIndex() < 0) {
-            goalList.setSelectedIndex(0);
-        }
+//        output.setText(gMemorytToString);
 
-        output.setText(gMemorytToString);
-
-        DefaultTreeModel treeModel = (DefaultTreeModel) tree.getModel();
-        if (treeRoot.getChildCount() != pursuableEntriesCycles.size()) {
+        DefaultTreeModel treeModel = (DefaultTreeModel) goalsTree.getModel();
+        if (goalsTreeRoot.getChildCount() != pursuableEntriesCycles.size()) {
             Long[] cycleList = pursuableEntriesCycles.toArray(new Long[]{});
             Arrays.sort(cycleList);
 
-            treeRoot.removeAllChildren();
+            goalsTreeRoot.removeAllChildren();
 
             for (Long cycle : cycleList) {
                 DefaultMutableTreeNode cycleNode = null;
@@ -513,7 +584,7 @@ public class MainControl extends JFrame {
                 double cycleNodeChosenPreference = -1.0;
                 DefaultMutableTreeNode cycleNodeExecutible = null;
                 double cycleNodeExecutiblePreference = -1.0;
-                for (GoalMemory gM : pursuableEntries) {
+                for (GoalMemory gM : memoryEntries) {
                     if (Objects.equals(gM.getCycle(), cycle)) {
                         if (cycleNode == null) {
                             cycleNode = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.CYCLE_TYPE), true);
@@ -584,24 +655,139 @@ public class MainControl extends JFrame {
                 }
 
                 if (!cycleNode.isLeaf()) {
-                    treeRoot.add(cycleNode);
+                    goalsTreeRoot.add(cycleNode);
                 }
             }
 
             treeModel.reload();
 
-            treeRoot.children().asIterator().forEachRemaining((arg0) -> {
+            goalsTreeRoot.children().asIterator().forEachRemaining((arg0) -> {
                 DefaultMutableTreeNode el = (DefaultMutableTreeNode) arg0;
                 TreePath path = new TreePath(((DefaultMutableTreeNode)el.getChildAt(0)).getPath());
-                tree.makeVisible(path);
+                goalsTree.makeVisible(path);
                 el.children().asIterator().forEachRemaining((arg1) -> {
                     DefaultMutableTreeNode el2 = (DefaultMutableTreeNode) arg1;
                     TreePath path2 = new TreePath(((DefaultMutableTreeNode) el2.getChildAt(0)).getPath());
-                    tree.makeVisible(path2);
+                    goalsTree.makeVisible(path2);
                 });
             });
 
-            int pos = splitPanelExplaination.getInsets().left + tree.getPreferredSize().width;
+            int pos = splitPanelGM.getInsets().left + goalsTree.getPreferredSize().width;
+            Insets scrollInsets = ((JScrollPane) splitPanelGM.getLeftComponent()).getInsets();
+            pos += scrollInsets.left + scrollInsets.right;
+            JScrollBar vBar = ((JScrollPane) splitPanelGM.getLeftComponent()).getVerticalScrollBar();
+            pos += (vBar.isVisible() ? vBar.getWidth() : 0);
+            splitPanelGM.setDividerLocation(pos);
+        }
+        
+
+//        DefaultTreeModel treeModel = (DefaultTreeModel) explanationsTree.getModel();
+        treeModel = (DefaultTreeModel) explanationsTree.getModel();
+        if (explanationsTreeRoot.getChildCount() != pursuableEntriesCycles.size()) {
+            Long[] cycleList = pursuableEntriesCycles.toArray(new Long[]{});
+            Arrays.sort(cycleList);
+
+            explanationsTreeRoot.removeAllChildren();
+
+            for (Long cycle : cycleList) {
+                DefaultMutableTreeNode cycleNode = null;
+                DefaultMutableTreeNode cycleNodeActive = null;
+                double cycleNodeActivePreference = -1.0;
+                DefaultMutableTreeNode cycleNodePursuable = null;
+                double cycleNodePursuablePreference = -1.0;
+                DefaultMutableTreeNode cycleNodeChosen = null;
+                double cycleNodeChosenPreference = -1.0;
+                DefaultMutableTreeNode cycleNodeExecutible = null;
+                double cycleNodeExecutiblePreference = -1.0;
+                for (GoalMemory gM : memoryEntries) {
+                    if (Objects.equals(gM.getCycle(), cycle)) {
+                        if (cycleNode == null) {
+                            cycleNode = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.CYCLE_TYPE), true);
+                        }
+
+                        double pref = gM.getGoalPreference();
+
+                        switch (gM.getGoalStage()) {
+                            case Active:
+                                if (cycleNodeActive == null) {
+                                    cycleNodeActive = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeActivePreference = pref;
+                                } else if (pref > cycleNodeActivePreference) {
+                                    cycleNodeActive.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeActivePreference = pref;
+                                }
+
+                                cycleNodeActive.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Pursuable:
+                                if (cycleNodePursuable == null) {
+                                    cycleNodePursuable = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodePursuablePreference = pref;
+                                } else if (pref > cycleNodePursuablePreference) {
+                                    cycleNodePursuable.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodePursuablePreference = pref;
+                                }
+
+                                cycleNodePursuable.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Chosen:
+                                if (cycleNodeChosen == null) {
+                                    cycleNodeChosen = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeChosenPreference = pref;
+                                } else if (pref > cycleNodeChosenPreference) {
+                                    cycleNodeChosen.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeChosenPreference = pref;
+                                }
+
+                                cycleNodeChosen.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                            case Executive:
+                                if (cycleNodeExecutible == null) {
+                                    cycleNodeExecutible = new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE), true);
+                                    cycleNodeExecutiblePreference = pref;
+                                } else if (pref > cycleNodeExecutiblePreference) {
+                                    cycleNodeExecutible.setUserObject(new TreeExplanationEntry(gM, TreeExplanationEntry.STAGE_TYPE));
+                                    cycleNodeExecutiblePreference = pref;
+                                }
+
+                                cycleNodeExecutible.add(new DefaultMutableTreeNode(new TreeExplanationEntry(gM, TreeExplanationEntry.GOAL_TYPE), false));
+                                break;
+                        }
+                    }
+                }
+
+                if (cycleNodeActive != null) {
+                    cycleNode.add(cycleNodeActive);
+                }
+                if (cycleNodePursuable != null) {
+                    cycleNode.add(cycleNodePursuable);
+                }
+                if (cycleNodeChosen != null) {
+                    cycleNode.add(cycleNodeChosen);
+                }
+                if (cycleNodeExecutible != null) {
+                    cycleNode.add(cycleNodeExecutible);
+                }
+
+                if (!cycleNode.isLeaf()) {
+                    explanationsTreeRoot.add(cycleNode);
+                }
+            }
+
+            treeModel.reload();
+
+            explanationsTreeRoot.children().asIterator().forEachRemaining((arg0) -> {
+                DefaultMutableTreeNode el = (DefaultMutableTreeNode) arg0;
+                TreePath path = new TreePath(((DefaultMutableTreeNode)el.getChildAt(0)).getPath());
+                explanationsTree.makeVisible(path);
+                el.children().asIterator().forEachRemaining((arg1) -> {
+                    DefaultMutableTreeNode el2 = (DefaultMutableTreeNode) arg1;
+                    TreePath path2 = new TreePath(((DefaultMutableTreeNode) el2.getChildAt(0)).getPath());
+                    explanationsTree.makeVisible(path2);
+                });
+            });
+
+            int pos = splitPanelExplaination.getInsets().left + explanationsTree.getPreferredSize().width;
             Insets scrollInsets = ((JScrollPane) splitPanelExplaination.getLeftComponent()).getInsets();
             pos += scrollInsets.left + scrollInsets.right;
             JScrollBar vBar = ((JScrollPane) splitPanelExplaination.getLeftComponent()).getVerticalScrollBar();

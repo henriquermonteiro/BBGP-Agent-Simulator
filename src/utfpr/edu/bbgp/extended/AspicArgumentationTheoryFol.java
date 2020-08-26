@@ -223,7 +223,7 @@ public class AspicArgumentationTheoryFol extends AspicArgumentationTheory<FolFor
                                 unifiedRule.addPremise((FolFormula) cloneFolFormula(prem).substitute(map));
                             }
                         }
-
+                        
                         changed = args.add(new AspicArgument<>(unifiedRule, subargset)) || changed;
                         usedTerms.addAll(ruleConclusion.getTerms(Constant.class));
                     }
