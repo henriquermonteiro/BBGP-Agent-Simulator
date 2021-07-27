@@ -15,7 +15,7 @@ public class PerceptionEntry implements Comparable<PerceptionEntry> {
     public static char ADDITION_OPERATION = '+';
     public static char DELETION_OPERATION = '-';
 
-    private long cycle;
+    private long cycle = -1;
     private Integer order;
     private FolFormula belief;
     private char operation;
@@ -112,6 +112,6 @@ public class PerceptionEntry implements Comparable<PerceptionEntry> {
         }else{
             body = body.concat("res : " + resource + ", " + resourceAmount.toString());
         }
-        return cycleS.concat(" : ").concat(body);
+        return (cycle > -1 ? cycleS.concat(" : ").concat(body) : body);
     }
 }

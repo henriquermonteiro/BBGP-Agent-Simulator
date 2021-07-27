@@ -73,7 +73,7 @@ public class ResourceFolFormula extends FolFormula{
 
     @Override
     public String toString() {
-        return String.format("res : %s,%f", resourceName, amount);
+        return "res : " + resourceName + "," + amount;
     }
 
     @Override

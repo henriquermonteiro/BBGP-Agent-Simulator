@@ -6,16 +6,16 @@
 => has(spare_part)
 res : battery,100
 
-head_to(X,Y) => busy
+head_to(X,Y) => busy {I am [if_accepted?busy:not] going to <term_0_0>, <term_0_1>.}
 
-act1 : head_to(X,Y) -> go(G,X,Y)
-act2 : !res : battery,30 -> recharge(G)
-act3 : defective -> be(G,fixed)
-act4 : solid_dirt(X,Y) -> pickup(G,X,Y)
-act5 : liquid_dirt(X,Y) -> mop(G,X,Y)
+act1 : head_to(X,Y) -> go(G,X,Y) {I need to <goal_name_0>}
+act2 : !res : battery,30 -> recharge(G) {My battery is low so I need to recharge.}
+act3 : defective -> be(G,fixed) {A defect is detected, need maintenance.}
+act4 : solid_dirt(X,Y) -> pickup(G,X,Y) {I detected solid dirt, I must pick it up.}
+act5 : liquid_dirt(X,Y) -> mop(G,X,Y) {I detected liquid dirt, I must mop.}
 
-defective -> !pickup(G,X,Y)
-defective -> !mop(G,X,Y)
+defective -> !pickup(G,X,Y) {I can not pick up lither while defective.}
+defective -> !mop(G,X,Y) {I can not mop while defective.}
 
 act4 < act5 < act1 < act2 < act3
 

@@ -1,0 +1,36 @@
+=> workshop_at(p1,p1)
+=> at(p3,p3)
+=> defective
+=> solid_dirt(p5,p5)
+=> liquid_dirt(p5,p5)
+=> has(spare_part)
+res : battery,100
+
+actgo : head_to(X,Y) -> go(X,Y) {I need to <goal_name_0>}
+actrech : !res : battery,30 -> recharge(G) {My battery is low so I need to recharge.}
+actfix : defective -> be(G,in_workshop) {A defect is detected, need maintenance.}
+actcl1 : solid_dirt(X,Y) -> clean(G,X,Y) {I detected dirt at <term_0_0>, <term_0_1>, I must clean it.}
+actcl2 : liquid_dirt(X,Y) -> clean(G,X,Y) {I detected dirt at <term_0_0>, <term_0_1>, I must clean it.}
+actpik : scheduled_pickup(X,Y) -> pickup(G,X,Y) {I detected solid dirt at <term_0_0>, <term_0_1>, I must pick it up.}
+actmop : scheduled_mop(X,Y) -> mop(G,X,Y) {I detected liquid dirt at <term_0_0>, <term_0_1>, I must mop it.}
+
+actrech < actfix < actgo < actpik < actmop < actcl1 < actcl2
+
+clean(G,X,Y) :- !at(X,Y), !busy, res : battery,80.0 $ + head_to(X,Y), + busy
+clean(G,X,Y) :- at(X,Y), liquid_dirt(X,Y), res : battery,50.0 $ + schedule_mop(X,Y)
+clean(G,X,Y) :- at(X,Y), solid_dirt(X,Y), res : battery,50.0 $ + schedule_pickup(X,Y)
+
+be(G,in_workshop) :- !at(X,Y), workshop_at(X,Y), has(spare_part), !busy, res : battery,30.0 $ + head_to(X,Y), + busy
+be(G,in_workshop) :- at(X,Y), workshop_at(X,Y), has(spare_part) $ - defective
+
+go(G,X,Y) :- !at(X,Y), head_to(X,Y), res:battery,30.0 $ - res:battery, 30.0, - busy, - head_to(X,Y)
+go(G,X,Y) :- at(X,Y), head_to(X,Y) $ - busy, - head_to(X,Y)
+
+pickup(G,X,Y) :- schedule_pickup(X,Y), at(X,Y), res:battery,40.0 $ -res:battery,40.0, -schedule_pickup(X,Y)
+pickup(G,X,Y) :- schedule_pickup(X,Y), !at(X,Y), res:battery,70.0 $ +head_to(X,Y), + busy
+
+mop(G,X,Y) :- schedule_mop(X,Y), at(X,Y), res:battery,50.0 $ -res:battery,50.0, -schedule_mop(X,Y)
+mop(G,X,Y) :- schedule_mop(X,Y), !at(X,Y), res:battery,80.0 $ + head_to(X,Y), + busy
+
+recharge(G) :- at(X,Y), workshop_at(X,Y) $ - res : battery,100, + res : battery,100
+recharge(G) :- !at(X,Y), workshop_at(X,Y) $ +head_to(X,Y), +busy

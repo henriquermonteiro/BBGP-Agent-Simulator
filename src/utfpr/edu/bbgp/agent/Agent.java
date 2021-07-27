@@ -940,4 +940,17 @@ public class Agent {
         
         return list;
     }
+    
+    public String getPlanLibraryToString() {
+        String toString = "";
+
+        for (SleepingGoal goal: planLib.keySet()) {
+            for(Plan p : planLib.get(goal)){
+                toString += p.toString();
+                toString += "\r\n";
+            }
+        }
+
+        return toString;
+    }
 }

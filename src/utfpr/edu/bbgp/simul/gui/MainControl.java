@@ -518,9 +518,13 @@ public class MainControl extends JFrame {
 
         String checkingRuleString = agent.getCheckingRulesToString();
         checkingRuleString = "Checking Rules: \r\n" + checkingRuleString;
-        checkingRuleString = checkingRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\n\t $", "");
-
-        beliefBase.setText(beliefBaseString.concat(resourcesBaseString.concat(standardRuleString.concat(activationRuleString.concat(evaluationRuleString.concat(deliberationRuleString.concat(checkingRuleString)))))));
+        checkingRuleString = checkingRuleString.replaceAll("\r\n", "\r\n\t ").replaceAll("\n\t $", "\n");
+        
+        String planLibrary = agent.getPlanLibraryToString();
+        planLibrary = "Plan Library: \r\n" + planLibrary;
+        planLibrary = planLibrary.replaceAll("\r\n", "\r\n\t ").replaceAll("\n\t $", "");
+        
+        beliefBase.setText(beliefBaseString.concat(resourcesBaseString.concat(standardRuleString.concat(activationRuleString.concat(evaluationRuleString.concat(deliberationRuleString.concat(checkingRuleString.concat(planLibrary))))))));
 
         ((PerceptionQueueListModel) scriptQueue.getModel()).setCycle(aThread.getAgent().getCycle());
         scriptQueue.revalidate();

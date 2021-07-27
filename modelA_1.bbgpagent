@@ -1,26 +1,25 @@
-=> beOperative(me)
-=> hasFractBone(man_32)
-=> fractBoneIs(man_32, arm)
-=> askedForHelp(p2, p6)
-=> openFracture(man_32)
-=> !availableHospitalResource(bed)
-=> newSupply(bed)
-=> supportWeight(man_32) 
+=> beOperative(me) {I am operative}
+=> hasFractBone(man_32) {<term_conc_0> has a fractured bone.}
+=> fractBoneIs(man_32, arm) {<term_conc_0> fractured bone is at its <term_conc_1>.}
+=> askedForHelp(p2, p6) {A call for help was issued at <term_conc_0>,<term_conc_1>.}
+=> openFracture(man_32) {<term_conc_0> has an open fracture.}
+=> !available(bed, man_32) {There is no available <term_conc_0> for <term_conc_1>.}
+=> newSupply(bed) {A new supply of <term_conc_0> has arrived.}
+=> supportWeight(man_32) {I can support <term_conc_0> weight.}
 
 newSupply(X), person(Y) -> available(X, Y) {A supply of <term_0_0>, that was not accounted before, became available to whoever might need.}
-!availableHospitalResource(bed), person(X) => !available(bed, X) {There are no available beds for <term_1_0>.}
 hasFractBone(X) => injuredSevere(X) {A fractured bone could be a severe injure.}
-fractBoneIs(X, arm) => !injuredSevere(X) {If the fractured bone is in the arm it might not be severe.}
+fractBoneIs(X, arm) => !injuredSevere(X) {If the fractured bone is in the arm it may not be severe.}
 openFracture(X) -> injuredSevere(X) {An open fracture is a severe injure, without exceptions.}
 
 hasFractBone(X) => person(X)
 
 act1 : injuredSevere(X) -> takeHospital(G, X) {Since [if_accepted?:it was not clear if] <term_conc_1> had a severe injure, <goal_name_0> [if_accepted?became:did not become] active.}
-act2 : !injuredSevere(X) -> sendShelter(G, X) {Since [if_accepted?:it was refuted that] <term_conc_1> injure was [if_accepted?not:] considered severe, <goal_name_0> [if_accepted?became:did not become] active.}
+act2 : !injuredSevere(X) -> sendShelter(G, X) {Since [if_accepted?:it was refuted that] <term_conc_1> injure was not considered severe, <goal_name_0> [if_accepted?became:did not become] active.}
 act3 : askedForHelp(X, Y) => go(G, X, Y) {Since a call for helped was issued at coordenates (<term_0_0>,<term_0_1>), <goal_name_0> became active.}
 
 !supportWeight(X) -> !takeHospital(G, X) {Since I cannot support the weight of <term_0_0>, <goal_name_0> did not become pursuable.}
-!available(bed, X) -> !takeHospital(G, X) {Since the hospital did not had a bed available for <term_0_1>, <goal_name_0> did not become pursuable.}
+!available(bed, X) -> !takeHospital(G, X) {Since [if_accepted?:it was refuted that] the hospital did not had a bed available for <term_0_1>, [if_accepted?<goal_name_0> did not become:it was not an impediment for <goal_name_0> to became] pursuable.}
 rescued(X) -> !takeHospital(G, X) {Since <term_0_0> had already been rescued, <goal_name_0> did not become pursuable.}
 rescued(X) -> !sendShelter(G, X) {Since <term_0_0> had already been rescued, <goal_name_0> did not become pursuable.}
 

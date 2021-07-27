@@ -137,4 +137,35 @@ public class Plan {
         
         return list;
     }
+
+    @Override
+    public String toString() {
+        String string = goal.toString() + " : ";
+
+        for (FolFormula folF : beliefContext) {
+            string += folF.toString() + ", ";
+        }
+
+        for (ResourceFolFormula res : resourceContext) {
+            string += res.toString() + ", ";
+        }
+
+        if (!beliefContext.isEmpty() || !resourceContext.isEmpty()) {
+            string = string.substring(0, string.length() - 2);
+        }
+        
+        string += " <- ";
+        
+        for(PerceptionEntry perEntry : postConditions){
+            string += perEntry.toString().replace("[0-9]+\\s:\\s", "") + "; ";
+        }
+
+        if (!postConditions.isEmpty()) {
+            string = string.substring(0, string.length() - 2);
+        }
+        
+        string += ".";
+
+        return string;
+    }
 }
